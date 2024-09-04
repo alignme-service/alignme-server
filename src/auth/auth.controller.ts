@@ -32,7 +32,7 @@ export class AuthController {
   @UseGuards(AuthGuard('kakao'))
   async kakaoAuth(@Req() _req: Request) {}
 
-  @Get('/user/login/kakao2')
+  @Get('/user/login/kakao/access')
   async kakaoAuth2(@Query('code') code: string, @Res() res: Response) {
     const formUrlEncoded = (x) =>
       Object.keys(x).reduce(
@@ -45,7 +45,7 @@ export class AuthController {
     const GRANT_TYPE = 'authorization_code';
     const CLIENT_ID = this.configService.get('KAKAO_ID');
     const CLIENT_SECRET = this.configService.get('KAKAO_SECRET');
-    const REDIRECT_URI = 'http://localhost:3000/auth/kakao/callback';
+    const REDIRECT_URI = this.configService.get('KAKAO_REDIRECT_URI');
 
     const requestBody = formUrlEncoded({
       grant_type: GRANT_TYPE,
