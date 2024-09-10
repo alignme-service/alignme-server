@@ -7,6 +7,8 @@ import { UserModule } from '../user/user.module'; // UserModule을 import하여 
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { PassportModule } from '@nestjs/passport';
 import { JwtStrategy } from 'src/strategies/jwt.strategy';
+import { ProfileModule } from 'src/profile/profile.module';
+import { Auth } from './entites/auth.entity';
 
 @Module({
   imports: [

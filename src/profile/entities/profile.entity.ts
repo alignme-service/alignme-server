@@ -17,22 +17,16 @@ export class Profile {
   studioName: string;
 
   @Column({ nullable: true })
-  instructorName: string;
-
-  @Column({ nullable: true })
   studioRegioinName: string;
 
-  @Column({ nullable: true })
-  managerName: string;
+  @Column()
+  name: string;
 
   @Column({
     type: 'enum',
     enum: UserType,
   })
   userType: UserType;
-
-  @Column({ nullable: true })
-  prifleImage: string | null;
 
   @OneToOne(() => User, (user) => user.profile)
   @JoinColumn()

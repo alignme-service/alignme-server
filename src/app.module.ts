@@ -23,6 +23,7 @@ import { ProfileModule } from './profile/profile.module';
       entities: [__dirname + '/**/*.entity{.ts,.js}'],
       synchronize: true,
     }),
+
     AuthModule,
     UserModule,
     ProfileModule,

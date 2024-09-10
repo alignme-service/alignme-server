@@ -77,6 +77,7 @@ export class AuthController {
         email: userInfo.kakao_account.email,
         name: userInfo.kakao_account.name,
         nickname: userInfo.kakao_account.profile.nickname,
+        profile_image: userInfo.kakao_account.profile.profile_image_url,
       };
 
       // JWT 토큰 생성

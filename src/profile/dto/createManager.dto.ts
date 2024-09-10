@@ -1,6 +1,5 @@
 export interface CreateManagerDto {
   studioName: string;
-  studioLocalName: string;
+  studioRegioinName: string;
   name: string;
-  email: string;
 }

@@ -1,5 +1,6 @@
+import { Auth } from 'src/auth/entites/auth.entity';
 import { Profile } from 'src/profile/entities/profile.entity';
-import { Entity, Column, PrimaryColumn, OneToOne } from 'typeorm';
+import { Entity, Column, PrimaryColumn, OneToOne, JoinColumn } from 'typeorm';
 
 @Entity()
 export class User {
@@ -20,4 +21,8 @@ export class User {
 
   @OneToOne(() => Profile, (profile) => profile.user)
   profile: Profile;
+
+  @OneToOne(() => Auth, (auth) => auth.user)
+  @JoinColumn()
+  auth: Auth;
 }

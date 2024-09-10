@@ -15,6 +15,7 @@ export class AuthService {
     email: string;
     name: string;
     nickname: string;
+    profile_image: string;
   }): Promise<User> {
     let user = await this.userService.findByEmail(payload.email);
     if (!user) {
