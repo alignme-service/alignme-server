@@ -4,6 +4,7 @@ import {
   Get,
   HttpException,
   HttpStatus,
+  NotFoundException,
   Post,
   Query,
   Req,
@@ -19,6 +20,7 @@ import { Response } from 'express';
 import { UserService } from 'src/user/user.service';
 import { JwtAuthGuard } from 'src/guard/JwtAuthGuard';
 import { Public } from 'src/public.decorator';
+import { User } from 'src/user/entites/user.entity';
 
 @Controller('auth')
 export class AuthController {
@@ -72,21 +74,23 @@ export class AuthController {
         },
       });
 
-      const userPayload = {
-        id: `${userInfo.id}`,
+      const authPayload = {
+        kakaoMemberId: userInfo.id,
         email: userInfo.kakao_account.email,
-        name: userInfo.kakao_account.name,
         nickname: userInfo.kakao_account.profile.nickname,
+        createdAt: new Date(),
         profile_image: userInfo.kakao_account.profile.profile_image_url,
       };
 
+      // 기존 유저있는지 확인
+      const authUser = await this.authService.validateUser(authPayload);
+      console.log('123', authUser);
       // JWT 토큰 생성
-      const user = await this.authService.validateUser(userPayload);
       const access_token = await this.authService.generateAccessToken(data);
       const refresh_token = await this.authService.generateRefreshToken(data);
 
       // 유저 객체에 refresh-token 데이터 저장
-      await this.userService.setCurrentRefreshToken(refresh_token, userInfo.id);
+      await this.authService.setCurrentRefreshToken(userInfo.id, refresh_token);
 
       res.setHeader('Authorization', 'Bearer ' + [access_token, refresh_token]);
       res.cookie('access_token', access_token, {
@@ -101,17 +105,14 @@ export class AuthController {
         data: {
           accessToken: access_token,
           refreshToken: refresh_token,
-          user: {
-            id: user.id,
-            email: user.email,
-            name: user.name,
-            nickname: user.nickname,
-          },
+          kakaoMemberId: userInfo.id,
+          // user: authUser.user,
         },
       });
     } catch (error) {
-      console.log(error.response);
-      return res.status(500).json({ message: 'Login failed' });
+      console.log('error', error);
+      // return res.status(404).json({ message: 'Login failed' });
+      throw new NotFoundException('Login failed');
     }
   }
 

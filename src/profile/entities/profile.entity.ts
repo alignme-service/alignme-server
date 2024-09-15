@@ -6,28 +6,32 @@ import {
   Column,
   OneToOne,
   JoinColumn,
+  UpdateDateColumn,
+  PrimaryColumn,
 } from 'typeorm';
 
 @Entity()
 export class Profile {
-  @PrimaryGeneratedColumn()
-  id: number;
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
 
-  @Column()
+  @Column({ nullable: true })
   studioName: string;
 
   @Column({ nullable: true })
   studioRegioinName: string;
 
-  @Column()
-  name: string;
+  @Column({ nullable: true })
+  profile_image: string;
+
+  @UpdateDateColumn({ nullable: true })
+  updatedAt: Date;
 
   @Column({
     type: 'enum',
     enum: UserType,
+    nullable: true,
   })
-  userType: UserType;
-
   @OneToOne(() => User, (user) => user.profile)
   @JoinColumn()
   user: User;

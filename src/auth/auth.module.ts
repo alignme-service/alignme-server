@@ -1,19 +1,22 @@
-import { forwardRef, Module } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { UserModule } from '../user/user.module'; // UserModule을 import하여 AuthService에서 사용
-import { TypeOrmModule } from '@nestjs/typeorm';
 import { PassportModule } from '@nestjs/passport';
 import { JwtStrategy } from 'src/strategies/jwt.strategy';
+import { ProfileService } from 'src/profile/profile.service';
 import { ProfileModule } from 'src/profile/profile.module';
+import { TypeOrmModule } from '@nestjs/typeorm';
 import { Auth } from './entites/auth.entity';
 
 @Module({
   imports: [
+    TypeOrmModule.forFeature([Auth]),
     UserModule,
     PassportModule,
+    ProfileModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({

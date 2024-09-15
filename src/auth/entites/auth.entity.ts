@@ -1,29 +1,37 @@
 import { User } from 'src/user/entites/user.entity';
 import {
   Column,
-  CreateDateColumn,
   Entity,
+  JoinColumn,
   OneToOne,
+  PrimaryColumn,
   PrimaryGeneratedColumn,
 } from 'typeorm';
 
 @Entity()
 export class Auth {
-  @PrimaryGeneratedColumn()
-  id: number;
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
 
-  @Column({ unique: true })
-  email: string;
-
-  @Column()
-  nickname: string;
+  @Column('bigint')
+  kakaoMemberId: number;
 
   @Column({ nullable: true })
-  profile_image: string;
+  refreshToken: string;
 
-  @CreateDateColumn()
-  created_at: Date;
+  // @Column({ type: 'timestamp' })
+  // expiresAt: Date;
 
-  @OneToOne(() => User, (user) => user.auth)
+  // @CreateDateColumn()
+  // createdAt: Date;
+
+  // @Column({ nullable: true })
+  // lastUsedAt: Date;
+
+  // @Column({ default: false })
+  // isRevoked: boolean;
+
+  @OneToOne(() => User, (user) => user.authTokens)
+  @JoinColumn()
   user: User;
 }
