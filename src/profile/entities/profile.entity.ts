@@ -1,5 +1,4 @@
 import { User } from 'src/user/entites/user.entity';
-import { UserRole } from 'src/user/types/userRole';
 import {
   Entity,
   PrimaryGeneratedColumn,

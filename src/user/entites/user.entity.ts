@@ -7,8 +7,11 @@ import {
   OneToOne,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
+  ManyToOne,
+  JoinColumn,
 } from 'typeorm';
 import { UserRole } from '../types/userRole';
+import { Studio } from '../../studio/entites/studio.entity';
 
 @Entity()
 export class User {
@@ -24,11 +27,11 @@ export class User {
   @Column({ nullable: true })
   nickname: string;
 
-  @Column({ nullable: true })
-  studioName: string;
-
-  @Column({ nullable: true })
-  studioRegionName: string;
+  // @Column({ nullable: true })
+  // studioName: string;
+  //
+  // @Column({ nullable: true })
+  // studioRegionName: string;
 
   @CreateDateColumn({ nullable: true })
   createdAt: Date;
@@ -48,4 +51,8 @@ export class User {
 
   @OneToOne(() => Profile, (profile) => profile.user)
   profile: Profile;
+
+  @ManyToOne(() => Studio, (studio) => studio.users)
+  @JoinColumn()
+  studio: Studio;
 }

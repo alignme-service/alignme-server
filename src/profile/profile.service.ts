@@ -5,6 +5,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CreateManagerDto } from './dto/createManager.dto';
 import { User } from 'src/user/entites/user.entity';
+import { Studio } from '../studio/entites/studio.entity';
 
 @Injectable()
 export class ProfileService {
@@ -13,13 +14,15 @@ export class ProfileService {
     private userRepository: Repository<User>,
     @InjectRepository(Profile)
     private profileRepository: Repository<Profile>,
+    @InjectRepository(Studio)
+    private studioRepository: Repository<Studio>,
   ) {}
 
   async createInstructor(createInstructor: CreateInstructorDto) {
     const instructor = await this.createUser(createInstructor);
 
-    if (createInstructor.studioName) {
-      instructor.studioName = createInstructor.studioName;
+    if (!createInstructor.studioName) {
+      throw new NotFoundException('invalid Studio name');
     }
 
     if (createInstructor.name) {
@@ -35,6 +38,11 @@ export class ProfileService {
     profile.updatedAt = new Date();
 
     // 변경사항 저장
+
+    instructor.studio.studioName = createInstructor.studioName;
+
+    await this.studioRepository.save(instructor.studio);
+
     await this.userRepository.save(instructor);
 
     return profile;
@@ -51,16 +59,18 @@ export class ProfileService {
       manager.role = createManager.userRole;
     }
 
-    if (createManager.studioName) {
-      manager.studioName = createManager.studioName;
-    }
-    if (createManager.studioRegionName) {
-      manager.studioRegionName = createManager.studioRegionName;
+    if (!createManager.studioName) {
+      throw new NotFoundException('invalid Studio name');
     }
 
     let profile = manager.profile;
 
     profile.updatedAt = new Date();
+
+    manager.studio.studioName = createManager.studioName;
+    manager.studio.studioRegionName = createManager.studioRegionName;
+
+    await this.studioRepository.save(manager.studio);
 
     // 변경사항 저장
     await this.userRepository.save(manager);
@@ -73,12 +83,18 @@ export class ProfileService {
   ): Promise<User> {
     const user = await this.userRepository.findOne({
       where: { kakaoMemberId: createUserDto.kakaoMemberId },
-      relations: ['profile'],
+      relations: ['profile', 'studio'],
     });
 
     if (user.profile) {
       throw new NotFoundException('Already joined User');
     }
+
+    const studio = this.studioRepository.create({
+      studioName: '',
+    });
+
+    user.studio = studio;
 
     if (!user.profile) {
       const newProfile = this.profileRepository.create({
