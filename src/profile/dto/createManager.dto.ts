@@ -1,9 +1,9 @@
-import { UserType } from 'src/user/types/userType';
+import { UserRole } from 'src/user/types/userRole';
 
 export interface CreateManagerDto {
   kakaoMemberId: number;
   studioName: string;
-  studioRegioinName: string;
+  studioRegionName: string;
   name: string;
-  userType: UserType;
+  userRole: UserRole;
 }

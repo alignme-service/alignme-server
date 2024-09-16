@@ -12,21 +12,18 @@ import {
   UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
-import { AuthService } from './auth.service';
+import { AuthService, ReturnValidateUser } from './auth.service';
 import { AuthGuard } from '@nestjs/passport';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import { Response } from 'express';
-import { UserService } from 'src/user/user.service';
 import { JwtAuthGuard } from 'src/guard/JwtAuthGuard';
 import { Public } from 'src/public.decorator';
-import { User } from 'src/user/entites/user.entity';
 
 @Controller('auth')
 export class AuthController {
   constructor(
     private readonly authService: AuthService,
-    private readonly userService: UserService,
     private readonly configService: ConfigService,
   ) {}
 
@@ -46,7 +43,7 @@ export class AuthController {
     const GET_USER_INFO_URL = 'https://kapi.kakao.com/v2/user/me';
     const GRANT_TYPE = 'authorization_code';
     const CLIENT_ID = this.configService.get('KAKAO_ID');
-    const CLIENT_SECRET = this.configService.get('KAKAO_SECRET');
+    // const CLIENT_SECRET = this.configService.get('KAKAO_SECRET');
     const REDIRECT_URI = this.configService.get('KAKAO_REDIRECT_URI');
 
     const requestBody = formUrlEncoded({
@@ -79,12 +76,13 @@ export class AuthController {
         email: userInfo.kakao_account.email,
         nickname: userInfo.kakao_account.profile.nickname,
         createdAt: new Date(),
-        profile_image: userInfo.kakao_account.profile.profile_image_url,
+        // profile_image: userInfo.kakao_account.profile.profile_image_url,
       };
 
       // 기존 유저있는지 확인
-      const authUser = await this.authService.validateUser(authPayload);
-      console.log('123', authUser);
+      const authUser: ReturnValidateUser =
+        await this.authService.validateUser(authPayload);
+
       // JWT 토큰 생성
       const access_token = await this.authService.generateAccessToken(data);
       const refresh_token = await this.authService.generateRefreshToken(data);
@@ -103,10 +101,10 @@ export class AuthController {
       res.status(200).json({
         message: 'Kakao login successful',
         data: {
+          isAleradyUser: authUser.isAleradyUser,
           accessToken: access_token,
           refreshToken: refresh_token,
           kakaoMemberId: userInfo.id,
-          // user: authUser.user,
         },
       });
     } catch (error) {
@@ -131,9 +129,9 @@ export class AuthController {
   }
 
   @Post('logout')
-  @UseGuards(JwtAuthGuard)
-  async logout(@Req() req) {
-    await this.authService.logout(req.user.userId);
+  // @UseGuards(JwtAuthGuard)
+  async logout(@Body('kakaoMemberId') kakaoMemberid: string) {
+    await this.authService.logout(+kakaoMemberid);
     return { message: 'Logout successful' };
   }
 

@@ -3,36 +3,49 @@ import { Profile } from 'src/profile/entities/profile.entity';
 import {
   Entity,
   Column,
-  PrimaryColumn,
   CreateDateColumn,
   OneToOne,
   PrimaryGeneratedColumn,
+  UpdateDateColumn,
 } from 'typeorm';
-import { UserType } from '../types/userType';
+import { UserRole } from '../types/userRole';
 
 @Entity()
 export class User {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column('bigint', { nullable: true })
+  @Column('bigint', { unique: true })
   kakaoMemberId: number;
 
-  @Column({ nullable: true })
-  name: string;
+  @Column({ unique: true, nullable: true })
+  email: string;
 
   @Column({ nullable: true })
   nickname: string;
 
-  @CreateDateColumn()
-  createdAt: Date;
+  @Column({ nullable: true })
+  studioName: string;
 
   @Column({ nullable: true })
-  userType: UserType;
+  studioRegionName: string;
+
+  @CreateDateColumn({ nullable: true })
+  createdAt: Date;
+
+  @UpdateDateColumn({ nullable: true })
+  updatedAt: Date;
+
+  @Column({
+    type: 'enum',
+    enum: Object.values(UserRole),
+    default: UserRole.MEMEBER,
+  })
+  role: UserRole;
+
+  @OneToOne(() => Auth, (auth) => auth.user)
+  auth: Auth;
 
   @OneToOne(() => Profile, (profile) => profile.user)
   profile: Profile;
-
-  @OneToOne(() => Auth, (auth) => auth.user)
-  authTokens: Auth;
 }

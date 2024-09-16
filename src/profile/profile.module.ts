@@ -7,7 +7,7 @@ import { User } from 'src/user/entites/user.entity';
 import { Auth } from 'src/auth/entites/auth.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Profile, User, Auth])],
+  imports: [TypeOrmModule.forFeature([User, Profile])],
   controllers: [ProfileController],
   providers: [ProfileService],
   exports: [ProfileService],
