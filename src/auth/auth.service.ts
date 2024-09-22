@@ -28,11 +28,10 @@ export class AuthService {
   async validateUser(payload: {
     kakaoMemberId: number;
     email: string;
-    nickname: string;
-    createdAt: Date;
+    name: string;
     // profile_image: string;
   }): Promise<ReturnValidateUser | null> {
-    const { kakaoMemberId, email, nickname, createdAt } = payload;
+    const { kakaoMemberId, email, name } = payload;
 
     let isAleradyUser = false;
 
@@ -44,15 +43,15 @@ export class AuthService {
       this.userRepository.create({
         kakaoMemberId,
         email,
-        nickname,
-        createdAt,
+        name,
+        createdAt: new Date(),
       });
 
       await this.userRepository.save({
         kakaoMemberId,
         email,
-        nickname,
-        createdAt,
+        name,
+        createdAt: new Date(),
       });
     }
     return { ...findUser, isAleradyUser: isAleradyUser };
@@ -109,8 +108,6 @@ export class AuthService {
       where: { id: user.id },
     });
 
-    console.log('user!', auth);
-
     if (!user) {
       throw new NotFoundException(
         `KakaoMemberId ${kakaoMemberId}를 가진 인증 정보를 찾을 수 없습니다.`,
@@ -123,12 +120,6 @@ export class AuthService {
 
     auth.refreshToken = refreshToken;
     await this.authRepository.save(auth);
-  }
-
-  async create(userData: Partial<User>): Promise<User> {
-    const newUser = this.userRepository.create(userData);
-
-    return this.userRepository.save(newUser);
   }
 
   async logout(kakaoMemberid: number) {

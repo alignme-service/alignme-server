@@ -17,41 +17,43 @@ import { AuthGuard } from '@nestjs/passport';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import { Response } from 'express';
-import { JwtAuthGuard } from 'src/guard/JwtAuthGuard';
+// import { JwtAuthGuard } from 'src/guard/JwtAuthGuard';
 import { Public } from 'src/public.decorator';
+import { UtilsService } from '../utils/utils.service';
+import { ApiBody, ApiOperation, ApiQuery } from '@nestjs/swagger';
 
 @Controller('auth')
 export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly configService: ConfigService,
+    private readonly utilsService: UtilsService,
   ) {}
 
   @Get('/user/login/kakao')
   @UseGuards(AuthGuard('kakao'))
   async kakaoAuth(@Req() _req: Request) {}
 
+  @ApiOperation({
+    description: '카톡 소셜 로그인 인증 + 유저 가입처리',
+  })
+  @ApiQuery({
+    name: 'code',
+    description: '클라이언트에서 redirect uri에 포함된 code',
+  })
   @Get('/user/login/kakao/access')
   async kakaoAuth2(@Query('code') code: string, @Res() res: Response) {
-    const formUrlEncoded = (x) =>
-      Object.keys(x).reduce(
-        (p, c) => p + `&${c}=${encodeURIComponent(x[c])}`,
-        '',
-      );
-
-    const GET_TOKEN_URL = 'https://kauth.kakao.com/oauth/token';
-    const GET_USER_INFO_URL = 'https://kapi.kakao.com/v2/user/me';
-    const GRANT_TYPE = 'authorization_code';
+    const GET_TOKEN_URL = this.configService.get('GET_TOKEN_URL');
+    const GET_USER_INFO_URL = this.configService.get('GET_USER_INFO_URL');
+    const GRANT_TYPE = this.configService.get('GRANT_TYPE');
     const CLIENT_ID = this.configService.get('KAKAO_ID');
-    // const CLIENT_SECRET = this.configService.get('KAKAO_SECRET');
     const REDIRECT_URI = this.configService.get('KAKAO_REDIRECT_URI');
 
-    const requestBody = formUrlEncoded({
+    const requestBody = this.utilsService.formUrlEncoded({
       grant_type: GRANT_TYPE,
       client_id: CLIENT_ID,
       redirect_uri: REDIRECT_URI,
       code,
-      // client_secret: CLIENT_SECRET,
     });
 
     if (!CLIENT_ID || !REDIRECT_URI) {
@@ -74,8 +76,7 @@ export class AuthController {
       const authPayload = {
         kakaoMemberId: userInfo.id,
         email: userInfo.kakao_account.email,
-        nickname: userInfo.kakao_account.profile.nickname,
-        createdAt: new Date(),
+        name: userInfo.kakao_account.name,
         // profile_image: userInfo.kakao_account.profile.profile_image_url,
       };
 
@@ -114,6 +115,21 @@ export class AuthController {
     }
   }
 
+  @ApiOperation({
+    description: 'refresh token 갱신',
+  })
+  @ApiBody({
+    description: '호출시 refresh token body에 포함',
+    schema: {
+      type: 'object',
+      properties: {
+        refreshToken: {
+          type: 'string',
+        },
+      },
+    },
+    type: String,
+  })
   @Public()
   @Post('refresh')
   async refreshToken(@Body('refreshToken') refreshToken: string) {
@@ -128,24 +144,25 @@ export class AuthController {
     }
   }
 
+  @ApiOperation({
+    description: '로그아웃',
+  })
+  @ApiBody({
+    description: '로그아웃할 유저의 kakaoMemberId',
+    schema: {
+      type: 'object',
+      properties: {
+        kakaoMemberId: {
+          type: 'string',
+        },
+      },
+    },
+    type: String,
+  })
   @Post('logout')
   // @UseGuards(JwtAuthGuard)
-  async logout(@Body('kakaoMemberId') kakaoMemberid: string) {
-    await this.authService.logout(+kakaoMemberid);
+  async logout(@Body('userId') userId: string) {
+    await this.authService.logout(+userId);
     return { message: 'Logout successful' };
   }
-
-  /* Get kakao Auth Callback */
-  // @Get('/kakao/callback')
-  // @UseGuards(AuthGuard('kakao'))
-  // async kakaoAuthCallback(
-  //   @Req() req,
-  //   @Res() res: Response, // : Promise<KakaoLoginAuthOutputDto>
-  // ) {
-  //   const { user } = req;
-  //   // console.log(user);
-
-  //   return res.send(user);
-  //   // return this.authService.kakaoLogin(req, res);
-  // }
 }

@@ -1,8 +1,13 @@
-import { Controller, Get, Param } from '@nestjs/common';
+import { Controller, Get, Query } from '@nestjs/common';
 import { UserService } from './user.service';
-import { User } from './entites/user.entity';
 
 @Controller('users')
 export class UserController {
   constructor(private readonly userService: UserService) {}
+
+  @Get()
+  // 회원 목록
+  getUsers(@Query('instructorId') instructorId: string) {
+    return this.userService.getUsersFromInstructor(instructorId);
+  }
 }

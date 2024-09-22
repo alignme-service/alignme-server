@@ -6,76 +6,155 @@ import { Repository } from 'typeorm';
 import { CreateManagerDto } from './dto/createManager.dto';
 import { User } from 'src/user/entites/user.entity';
 import { Studio } from '../studio/entites/studio.entity';
+import { UtilsService } from '../utils/utils.service';
+import { AwsService } from '../aws/aws.service';
+import { Instructor } from '../user/entites/instructor.entity';
+import { Manager } from '../user/entites/manager.entity';
 
 @Injectable()
 export class ProfileService {
   constructor(
     @InjectRepository(User)
     private userRepository: Repository<User>,
+    @InjectRepository(Instructor)
+    private instructorRepository: Repository<Instructor>,
+    @InjectRepository(Manager)
+    private managerRepository: Repository<Manager>,
     @InjectRepository(Profile)
     private profileRepository: Repository<Profile>,
     @InjectRepository(Studio)
     private studioRepository: Repository<Studio>,
+    private readonly utilsService: UtilsService,
+    private readonly awsService: AwsService,
   ) {}
 
-  async createInstructor(createInstructor: CreateInstructorDto) {
-    const instructor = await this.createUser(createInstructor);
+  // async test() {
+  //   const instructor = await this.instructorRepository.findOne({
+  //     // where: { kakaoMemberId: 3691135653 },
+  //     relations: ['user', 'instructor'],
+  //   });
+  //
+  //   const member = {
+  //     kakaoMemberId: 1234,
+  //     email: 'teset',
+  //     nickname: 'asdf',
+  //     createdAt: new Date(),
+  //     updatedAt: new Date(),
+  //     role: UserRole.MEMEBER,
+  //   };
+  // }
 
+  async createInstructor(createInstructor: CreateInstructorDto) {
     if (!createInstructor.studioName) {
       throw new NotFoundException('invalid Studio name');
     }
 
+    const instructor = await this.createUser(createInstructor);
+
     if (createInstructor.name) {
-      instructor.nickname = createInstructor.name;
+      instructor.name = createInstructor.name;
     }
 
     if (createInstructor.userRole) {
       instructor.role = createInstructor.userRole;
     }
 
-    let profile = instructor.profile;
-
-    profile.updatedAt = new Date();
-
-    // 변경사항 저장
-
-    instructor.studio.studioName = createInstructor.studioName;
+    if (createInstructor.studioName) {
+      instructor.studio.studioName = createInstructor.studioName;
+    }
 
     await this.studioRepository.save(instructor.studio);
 
     await this.userRepository.save(instructor);
 
-    return profile;
+    const createdInstructor = this.instructorRepository.create({
+      user: instructor,
+    });
+
+    await this.instructorRepository.save(createdInstructor);
+
+    return createdInstructor;
   }
 
   async createManager(createManager: CreateManagerDto) {
+    if (!createManager.studioName) {
+      throw new NotFoundException('invalid Studio name');
+    }
+
     const manager = await this.createUser(createManager);
 
     if (createManager.name) {
-      manager.nickname = createManager.name;
+      manager.name = createManager.name;
     }
 
     if (createManager.userRole) {
       manager.role = createManager.userRole;
     }
 
-    if (!createManager.studioName) {
-      throw new NotFoundException('invalid Studio name');
+    if (createManager.studioName) {
+      manager.studio.studioName = createManager.studioName;
     }
 
-    let profile = manager.profile;
-
-    profile.updatedAt = new Date();
-
-    manager.studio.studioName = createManager.studioName;
-    manager.studio.studioRegionName = createManager.studioRegionName;
+    if (createManager.studioRegionName) {
+      manager.studio.studioRegionName = createManager.studioRegionName;
+    }
 
     await this.studioRepository.save(manager.studio);
 
-    // 변경사항 저장
     await this.userRepository.save(manager);
 
-    return profile;
+    const createdManager = this.managerRepository.create({
+      user: manager,
+    });
+
+    await this.managerRepository.save(createdManager);
+
+    return createdManager;
+  }
+
+  async getMypageInfo(userId: number) {
+    const userInfo = await this.userRepository.findOne({
+      where: { kakaoMemberId: userId },
+      relations: ['profile', 'studio'],
+    });
+
+    const profile = userInfo.profile;
+    const studio = userInfo.studio;
+
+    return {
+      profile_image: profile.profile_image,
+      email: userInfo.email,
+      studio: studio.studioName,
+      studioRegion: studio.studioRegionName || null,
+      name: userInfo.name,
+      role: userInfo.role,
+    };
+  }
+
+  async saveImage(kakaoMemberId: number, file: Express.Multer.File) {
+    const imgSrc = await this.imageUpload(file);
+
+    const findUser = await this.userRepository.findOne({
+      where: { kakaoMemberId },
+      relations: ['profile'],
+    });
+
+    findUser.profile.profile_image = imgSrc.imageUrl;
+    await this.profileRepository.save(findUser.profile);
+  }
+
+  private async imageUpload(file: Express.Multer.File) {
+    const imageName = this.utilsService.getUUID();
+    const ext = file.originalname.split('.').pop();
+
+    const imageUrl = await this.awsService.imageUploadToS3(
+      `${imageName}.${ext}`,
+      file,
+      ext,
+      'profile',
+    );
+
+    return { imageUrl };
   }
 
   private async createUser(
@@ -90,9 +169,7 @@ export class ProfileService {
       throw new NotFoundException('Already joined User');
     }
 
-    const studio = this.studioRepository.create({
-      studioName: '',
-    });
+    const studio = this.studioRepository.create();
 
     user.studio = studio;
 
@@ -100,6 +177,7 @@ export class ProfileService {
       const newProfile = this.profileRepository.create({
         user,
       });
+      newProfile.updatedAt = new Date();
       user.profile = await this.profileRepository.save(newProfile);
     }
 

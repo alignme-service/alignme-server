@@ -3,14 +3,14 @@ import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
-import { UserModule } from '../user/user.module'; // UserModule을 import하여 AuthService에서 사용
+import { UserModule } from '../user/user.module';
 import { PassportModule } from '@nestjs/passport';
 import { JwtStrategy } from 'src/strategies/jwt.strategy';
-import { ProfileService } from 'src/profile/profile.service';
 import { ProfileModule } from 'src/profile/profile.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Auth } from './entites/auth.entity';
 import { User } from 'src/user/entites/user.entity';
+import { UtilsService } from '../utils/utils.service';
 
 @Module({
   imports: [
@@ -31,7 +31,7 @@ import { User } from 'src/user/entites/user.entity';
     ConfigModule,
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy],
+  providers: [AuthService, JwtStrategy, UtilsService],
   exports: [AuthService],
 })
 export class AuthModule {}
