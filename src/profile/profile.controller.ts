@@ -4,11 +4,12 @@ import {
   Get,
   HttpCode,
   Post,
-  Query,
+  Req,
   UploadedFile,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
+import { Request } from 'express';
 import { ProfileService } from './profile.service';
 import { CreateInstructorDto } from './dto/createInstructor.dto';
 import { CreateManagerDto } from './dto/createManager.dto';
@@ -48,20 +49,31 @@ export class ProfileController {
   @UseGuards(JwtAuthGuard)
   @Post('update')
   async saveImage(
-    @Body('userId') userId: string,
+    @Req() request: Request,
     @UploadedFile() file: Express.Multer.File,
   ) {
-    return await this.profileService.saveImage(+userId, file);
+    const accessToken = request.cookies['accessToken'];
+
+    if (!accessToken) {
+      throw new Error('No access token provided');
+    }
+
+    return await this.profileService.saveImage(accessToken, file);
   }
 
   @ApiOperation({
     summary: '마이페이지 정보',
     description: '마이페이지 정보',
   })
-  @ApiQuery({ name: 'userId', description: '유저 아이디' })
   @UseGuards(JwtAuthGuard)
   @Get()
-  myPageInfo(@Query('userId') userId: string) {
-    return this.profileService.getMypageInfo(+userId);
+  myPageInfo(@Req() request: Request) {
+    const accessToken = request.cookies['accessToken'];
+
+    if (!accessToken) {
+      throw new Error('No access token provided');
+    }
+
+    return this.profileService.getMypageInfo(accessToken);
   }
 }

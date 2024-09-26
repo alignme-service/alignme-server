@@ -1,27 +1,21 @@
-import { Module } from '@nestjs/common';
-import { ProfileService } from './profile.service';
-import { ProfileController } from './profile.controller';
+import { forwardRef, Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { User } from '../user/entites/user.entity';
 import { Profile } from './entities/profile.entity';
-import { User } from 'src/user/entites/user.entity';
 import { Studio } from '../studio/entites/studio.entity';
-import { AwsModule } from '../aws/aws.module';
-import { UtilsService } from '../utils/utils.service';
 import { Instructor } from '../user/entites/instructor.entity';
 import { Manager } from '../user/entites/manager.entity';
-import { Auth } from '../auth/entites/auth.entity';
+import { AwsModule } from '../aws/aws.module';
+import { AuthModule } from '../auth/auth.module';
+import { ProfileController } from './profile.controller';
+import { ProfileService } from './profile.service';
+import { UtilsService } from '../utils/utils.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([
-      User,
-      Profile,
-      Studio,
-      Instructor,
-      Manager,
-      Auth,
-    ]),
+    TypeOrmModule.forFeature([User, Profile, Studio, Instructor, Manager]),
     AwsModule,
+    forwardRef(() => AuthModule),
   ],
   controllers: [ProfileController],
   providers: [ProfileService, UtilsService],

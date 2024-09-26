@@ -10,13 +10,11 @@ import { UtilsService } from '../utils/utils.service';
 import { AwsService } from '../aws/aws.service';
 import { Instructor } from '../user/entites/instructor.entity';
 import { Manager } from '../user/entites/manager.entity';
-import { Auth } from '../auth/entites/auth.entity';
+import { AuthService } from '../auth/auth.service';
 
 @Injectable()
 export class ProfileService {
   constructor(
-    @InjectRepository(Auth)
-    private authRepository: Repository<Auth>,
     @InjectRepository(User)
     private userRepository: Repository<User>,
     @InjectRepository(Instructor)
@@ -29,6 +27,7 @@ export class ProfileService {
     private studioRepository: Repository<Studio>,
     private readonly utilsService: UtilsService,
     private readonly awsService: AwsService,
+    private readonly authService: AuthService,
   ) {}
 
   // async test() {
@@ -115,9 +114,12 @@ export class ProfileService {
     return createdManager;
   }
 
-  async getMypageInfo(userId: number) {
+  async getMypageInfo(accessToken: string) {
+    const extractUserInfo = this.authService.decodeTokenUserId(accessToken);
+    const userId = extractUserInfo.userId;
+
     const userInfo = await this.userRepository.findOne({
-      where: { kakaoMemberId: userId },
+      where: { kakaoMemberId: +userId },
       relations: ['profile', 'studio'],
     });
 
@@ -134,11 +136,14 @@ export class ProfileService {
     };
   }
 
-  async saveImage(kakaoMemberId: number, file: Express.Multer.File) {
+  async saveImage(accessToken: string, file: Express.Multer.File) {
+    const extractUserInfo = this.authService.decodeTokenUserId(accessToken);
+    const userId = extractUserInfo.userId;
+
     const imgSrc = await this.imageUpload(file);
 
     const findUser = await this.userRepository.findOne({
-      where: { kakaoMemberId },
+      where: { kakaoMemberId: +userId },
       relations: ['profile'],
     });
 

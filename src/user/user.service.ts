@@ -13,23 +13,16 @@ export class UserService {
     private InstructorRepository: Repository<Instructor>,
   ) {}
 
-  async getUsersFromInstructor(instructorId: string) {
-    // const user = await this.userRepository.findOne({
-    //   where: { kakaoMemberId: userId },
-    //   relations: ['instructor'],
+  async getUsersFromInstructor(accessToken: string) {
+    // const users = await this.InstructorRepository.findOne({
+    //   where: { user: { id: instructorId } },
+    //   relations: ['members'],
     // });
-    const users = await this.InstructorRepository.findOne({
-      where: { user: { id: instructorId } },
-      relations: ['members'],
-    });
-    console.log('d', users);
-
+    // console.log('d', users);
     // return users.members;
-
     // if (!users) {
     //   throw new NotFoundException('Not Found Users');
     // }
-
     // return user.instructor.members;
   }
 }
