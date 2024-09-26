@@ -12,15 +12,16 @@ import {
   UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
+import { Request } from 'express';
 import { AuthService, ReturnValidateUser } from './auth.service';
 import { AuthGuard } from '@nestjs/passport';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 import { Response } from 'express';
-// import { JwtAuthGuard } from 'src/guard/JwtAuthGuard';
+import { JwtAuthGuard } from 'src/guard/JwtAuthGuard';
 import { Public } from 'src/public.decorator';
 import { UtilsService } from '../utils/utils.service';
-import { ApiBody, ApiOperation, ApiQuery } from '@nestjs/swagger';
+import { ApiBody, ApiOperation, ApiQuery, ApiResponse } from '@nestjs/swagger';
 
 @Controller('auth')
 export class AuthController {
@@ -41,6 +42,7 @@ export class AuthController {
     name: 'code',
     description: '클라이언트에서 redirect uri에 포함된 code',
   })
+  @ApiResponse({ status: 200, description: 'isAleradyUser: false -> 신규유저' })
   @Get('/user/login/kakao/access')
   async kakaoAuth2(@Query('code') code: string, @Res() res: Response) {
     const GET_TOKEN_URL = this.configService.get('GET_TOKEN_URL');
@@ -85,7 +87,11 @@ export class AuthController {
         await this.authService.validateUser(authPayload);
 
       // JWT 토큰 생성
-      const access_token = await this.authService.generateAccessToken(data);
+      const access_token = await this.authService.generateAccessToken(
+        userInfo.id,
+        userInfo.kakao_account.email,
+        userInfo.kakao_account.name,
+      );
       const refresh_token = await this.authService.generateRefreshToken(data);
 
       // 유저 객체에 refresh-token 데이터 저장
@@ -131,6 +137,7 @@ export class AuthController {
     type: String,
   })
   @Public()
+  @UseGuards(JwtAuthGuard)
   @Post('refresh')
   async refreshToken(@Body('refreshToken') refreshToken: string) {
     try {
@@ -160,9 +167,10 @@ export class AuthController {
     type: String,
   })
   @Post('logout')
-  // @UseGuards(JwtAuthGuard)
-  async logout(@Body('userId') userId: string) {
-    await this.authService.logout(+userId);
+  async logout(@Req() request: Request) {
+    const accessToken = request.cookies['accessToken'];
+
+    await this.authService.logout(+accessToken);
     return { message: 'Logout successful' };
   }
 }

@@ -10,10 +10,13 @@ import { UtilsService } from '../utils/utils.service';
 import { AwsService } from '../aws/aws.service';
 import { Instructor } from '../user/entites/instructor.entity';
 import { Manager } from '../user/entites/manager.entity';
+import { Auth } from '../auth/entites/auth.entity';
 
 @Injectable()
 export class ProfileService {
   constructor(
+    @InjectRepository(Auth)
+    private authRepository: Repository<Auth>,
     @InjectRepository(User)
     private userRepository: Repository<User>,
     @InjectRepository(Instructor)

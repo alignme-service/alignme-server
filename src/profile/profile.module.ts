@@ -9,10 +9,18 @@ import { AwsModule } from '../aws/aws.module';
 import { UtilsService } from '../utils/utils.service';
 import { Instructor } from '../user/entites/instructor.entity';
 import { Manager } from '../user/entites/manager.entity';
+import { Auth } from '../auth/entites/auth.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, Profile, Studio, Instructor, Manager]),
+    TypeOrmModule.forFeature([
+      User,
+      Profile,
+      Studio,
+      Instructor,
+      Manager,
+      Auth,
+    ]),
     AwsModule,
   ],
   controllers: [ProfileController],

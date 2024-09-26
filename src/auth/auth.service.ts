@@ -33,12 +33,12 @@ export class AuthService {
   }): Promise<ReturnValidateUser | null> {
     const { kakaoMemberId, email, name } = payload;
 
-    let isAleradyUser = false;
+    let isAleradyUser = true;
 
     const findUser: User = await this.findkakaoMemberId(kakaoMemberId);
 
     if (findUser === null) {
-      isAleradyUser = true;
+      isAleradyUser = false;
 
       this.userRepository.create({
         kakaoMemberId,
@@ -57,8 +57,13 @@ export class AuthService {
     return { ...findUser, isAleradyUser: isAleradyUser };
   }
 
-  async generateAccessToken(user: User): Promise<string> {
-    const payload = { sub: user.id };
+  async generateAccessToken(
+    userId: number,
+    email: string,
+    name: string,
+  ): Promise<string> {
+    const payload = { userId, email, name };
+
     return this.jwtService.sign(payload);
   }
 
@@ -96,6 +101,20 @@ export class AuthService {
     }
   }
 
+  decodeTokenUserId(token: string): {
+    userId: string;
+    email: string;
+    name: string;
+  } {
+    try {
+      const decoded = this.jwtService.verify(token);
+      const { userId, email, name } = decoded;
+      return { userId, email, name };
+    } catch (error) {
+      throw new Error('Invalid token');
+    }
+  }
+
   async setCurrentRefreshToken(
     kakaoMemberId: number,
     refreshToken: string,
@@ -105,7 +124,11 @@ export class AuthService {
     });
 
     let auth = await this.authRepository.findOne({
-      where: { id: user.id },
+      where: {
+        user: {
+          id: user.id,
+        },
+      },
     });
 
     if (!user) {
