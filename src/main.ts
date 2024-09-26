@@ -1,9 +1,25 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import * as express from 'express';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, { cors: true });
+  const app = await NestFactory.create(AppModule, {
+    cors: true,
+    rawBody: true,
+  });
+
+  // JSON 파싱 설정 (기본 크기 제한: 100kb)
+  app.use(express.json({ limit: '100kb' }));
+
+  // URL-encoded 파싱 설정
+  app.use(express.urlencoded({ extended: true, limit: '100kb' }));
+
+  // 원시 본문 파싱 설정 (필요한 경우)
+  app.use(express.raw({ type: 'application/octet-stream', limit: '100kb' }));
+
+  // 텍스트 본문 파싱 설정 (필요한 경우)
+  app.use(express.text({ type: 'text/plain', limit: '100kb' }));
 
   const config = new DocumentBuilder()
     .setTitle('API 문서')
