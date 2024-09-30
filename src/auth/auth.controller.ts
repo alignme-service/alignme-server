@@ -140,9 +140,16 @@ export class AuthController {
   @Public()
   @UseGuards(JwtAuthGuard)
   @Post('refresh')
-  async refreshToken(@Body('refreshToken') refreshToken: string) {
+  async refreshToken(
+    @Body('refreshToken') refreshToken: string,
+    @Req() request: Request,
+  ) {
     try {
-      const tokens = await this.authService.refreshToken(refreshToken);
+      const accessToken = request.cookies['accessToken'];
+      const tokens = await this.authService.refreshToken(
+        refreshToken,
+        accessToken,
+      );
       return {
         accessToken: tokens.accessToken,
         refreshToken: tokens.refreshToken,

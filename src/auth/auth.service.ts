@@ -72,8 +72,10 @@ export class AuthService {
     return this.jwtService.sign(payload, { expiresIn: '7d' });
   }
 
-  async refreshToken(refreshToken: string) {
+  async refreshToken(refreshToken: string, accessToken: string) {
     try {
+      const userInfo = this.decodeTokenUserId(accessToken);
+
       const payload = this.jwtService.verify(refreshToken);
       const authTokenInfo = await this.findById(payload.userId);
 
@@ -82,15 +84,16 @@ export class AuthService {
       }
 
       const newAccessToken = this.jwtService.sign({
-        sub: authTokenInfo.id,
-        // username: user.nickname,
+        userId: userInfo.userId,
+        email: userInfo.email,
+        name: userInfo.name,
       });
       const newRefreshToken = this.jwtService.sign(
-        { sub: authTokenInfo.id },
+        { userId: userInfo.userId, email: userInfo.email, name: userInfo.name },
         { expiresIn: '7d' },
       );
 
-      await this.updateRefreshToken(+authTokenInfo.id, newRefreshToken);
+      await this.updateRefreshToken(authTokenInfo.id, newRefreshToken);
 
       return {
         accessToken: newAccessToken,
@@ -159,11 +162,11 @@ export class AuthService {
   }
 
   private async updateRefreshToken(
-    userId: number,
+    authId: string,
     refreshToken: string,
   ): Promise<void> {
     try {
-      await this.authRepository.update(userId, { refreshToken });
+      await this.authRepository.update(authId, { refreshToken });
     } catch (error) {
       console.error('Error updating refresh token:', error);
       throw new Error('Failed to update refresh token');
