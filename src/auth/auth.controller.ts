@@ -23,6 +23,7 @@ import { JwtAuthGuard } from 'src/guard/JwtAuthGuard';
 import { Public } from 'src/public.decorator';
 import { UtilsService } from '../utils/utils.service';
 import { ApiBody, ApiOperation, ApiQuery, ApiResponse } from '@nestjs/swagger';
+import { GetAccessToken } from '../decorators/get-access-token.decorator';
 
 @Controller('auth')
 export class AuthController {
@@ -142,12 +143,9 @@ export class AuthController {
   @Post('refresh')
   async refreshToken(
     @Body('refreshToken') refreshToken: string,
-    @Req() request: Request,
+    @GetAccessToken() accessToken: string,
   ) {
     try {
-      // const accessToken = request.cookies['accessToken'];
-      const accessToken =
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjM2OTExMzU2NTMsImVtYWlsIjoiYWxpZ25tZUBrYWthby5jb20iLCJuYW1lIjoi7JWI7Z2s7YOcIiwiaWF0IjoxNzI3NjYxODQ4LCJleHAiOjE3Mjc3NDgyNDh9.Eeoinil13bbhAw2VrBAj9OxoMhfC2mKRzIecCphcGzQ';
       const tokens = await this.authService.refreshToken(
         refreshToken,
         accessToken,

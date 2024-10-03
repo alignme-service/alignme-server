@@ -79,7 +79,7 @@ export class AuthService {
       const payload = this.jwtService.verify(refreshToken);
       const authTokenInfo = await this.findById(payload.userId);
 
-      if (!authTokenInfo || authTokenInfo.refreshToken !== refreshToken) {
+      if (!authTokenInfo || authTokenInfo.refreshToken === refreshToken) {
         throw new Error('Invalid refresh token');
       }
 
