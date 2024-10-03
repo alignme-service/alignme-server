@@ -77,10 +77,14 @@ export class AuthService {
       const userInfo = this.decodeTokenUserId(accessToken);
 
       const payload = this.jwtService.verify(refreshToken);
-      const authTokenInfo = await this.findById(payload.userId);
+      const authTokenInfo = await this.findById(userInfo.userId);
 
-      if (!authTokenInfo || authTokenInfo.refreshToken === refreshToken) {
+      if (!authTokenInfo) {
         throw new Error('Invalid refresh token');
+      }
+
+      if (!payload) {
+        throw new UnauthorizedException('Invalid refresh token');
       }
 
       const newAccessToken = this.jwtService.sign({
@@ -152,9 +156,11 @@ export class AuthService {
     await this.removeRefreshToken(kakaoMemberid);
   }
 
-  private async findById(id: string): Promise<Auth | undefined> {
+  private async findById(id: string): Promise<User | undefined> {
     try {
-      return await this.authRepository.findOne({ where: { id } });
+      return await this.userRepository.findOne({
+        where: { kakaoMemberId: +id },
+      });
     } catch (error) {
       console.error('Error finding user by ID:', error);
       throw new Error('Failed to find user');
