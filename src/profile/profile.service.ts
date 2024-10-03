@@ -1,15 +1,10 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { CreateInstructorDto } from './dto/createInstructor.dto';
+import { Injectable } from '@nestjs/common';
 import { Profile } from './entities/profile.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { CreateManagerDto } from './dto/createManager.dto';
 import { User } from 'src/user/entites/user.entity';
-import { Studio } from '../studio/entites/studio.entity';
 import { UtilsService } from '../utils/utils.service';
 import { AwsService } from '../aws/aws.service';
-import { Instructor } from '../user/entites/instructor.entity';
-import { Manager } from '../user/entites/manager.entity';
 import { AuthService } from '../auth/auth.service';
 
 @Injectable()
@@ -17,102 +12,12 @@ export class ProfileService {
   constructor(
     @InjectRepository(User)
     private userRepository: Repository<User>,
-    @InjectRepository(Instructor)
-    private instructorRepository: Repository<Instructor>,
-    @InjectRepository(Manager)
-    private managerRepository: Repository<Manager>,
     @InjectRepository(Profile)
     private profileRepository: Repository<Profile>,
-    @InjectRepository(Studio)
-    private studioRepository: Repository<Studio>,
     private readonly utilsService: UtilsService,
     private readonly awsService: AwsService,
     private readonly authService: AuthService,
   ) {}
-
-  // async test() {
-  //   const instructor = await this.instructorRepository.findOne({
-  //     // where: { kakaoMemberId: 3691135653 },
-  //     relations: ['user', 'instructor'],
-  //   });
-  //
-  //   const member = {
-  //     kakaoMemberId: 1234,
-  //     email: 'teset',
-  //     nickname: 'asdf',
-  //     createdAt: new Date(),
-  //     updatedAt: new Date(),
-  //     role: UserRole.MEMEBER,
-  //   };
-  // }
-
-  async createInstructor(createInstructor: CreateInstructorDto) {
-    if (!createInstructor.studioName) {
-      throw new NotFoundException('invalid Studio name');
-    }
-
-    const instructor = await this.createUser(createInstructor);
-
-    if (createInstructor.name) {
-      instructor.name = createInstructor.name;
-    }
-
-    if (createInstructor.userRole) {
-      instructor.role = createInstructor.userRole;
-    }
-
-    if (createInstructor.studioName) {
-      instructor.studio.studioName = createInstructor.studioName;
-    }
-
-    await this.studioRepository.save(instructor.studio);
-
-    await this.userRepository.save(instructor);
-
-    const createdInstructor = this.instructorRepository.create({
-      user: instructor,
-    });
-
-    await this.instructorRepository.save(createdInstructor);
-
-    return createdInstructor;
-  }
-
-  async createManager(createManager: CreateManagerDto) {
-    if (!createManager.studioName) {
-      throw new NotFoundException('invalid Studio name');
-    }
-
-    const manager = await this.createUser(createManager);
-
-    if (createManager.name) {
-      manager.name = createManager.name;
-    }
-
-    if (createManager.userRole) {
-      manager.role = createManager.userRole;
-    }
-
-    if (createManager.studioName) {
-      manager.studio.studioName = createManager.studioName;
-    }
-
-    if (createManager.studioRegionName) {
-      manager.studio.studioRegionName = createManager.studioRegionName;
-    }
-
-    await this.studioRepository.save(manager.studio);
-
-    await this.userRepository.save(manager);
-
-    const createdManager = this.managerRepository.create({
-      user: manager,
-    });
-
-    await this.managerRepository.save(createdManager);
-
-    return createdManager;
-  }
 
   async getMypageInfo(accessToken: string) {
     const extractUserInfo = this.authService.decodeTokenUserId(accessToken);
@@ -163,36 +68,5 @@ export class ProfileService {
     );
 
     return { imageUrl };
-  }
-
-  private async createUser(
-    createUserDto: CreateManagerDto | CreateInstructorDto,
-  ): Promise<User> {
-    const user = await this.userRepository.findOne({
-      where: { kakaoMemberId: createUserDto.kakaoMemberId },
-      relations: ['profile', 'studio'],
-    });
-
-    if (user.profile) {
-      throw new NotFoundException('Already joined User');
-    }
-
-    const studio = this.studioRepository.create();
-
-    user.studio = studio;
-
-    if (!user.profile) {
-      const newProfile = this.profileRepository.create({
-        user,
-      });
-      newProfile.updatedAt = new Date();
-      user.profile = await this.profileRepository.save(newProfile);
-    }
-
-    if (!user) {
-      throw new NotFoundException('Not Found Auth User');
-    }
-
-    return user;
   }
 }

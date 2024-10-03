@@ -145,7 +145,9 @@ export class AuthController {
     @Req() request: Request,
   ) {
     try {
-      const accessToken = request.cookies['accessToken'];
+      // const accessToken = request.cookies['accessToken'];
+      const accessToken =
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjM2OTExMzU2NTMsImVtYWlsIjoiYWxpZ25tZUBrYWthby5jb20iLCJuYW1lIjoi7JWI7Z2s7YOcIiwiaWF0IjoxNzI3NjYxODQ4LCJleHAiOjE3Mjc3NDgyNDh9.Eeoinil13bbhAw2VrBAj9OxoMhfC2mKRzIecCphcGzQ';
       const tokens = await this.authService.refreshToken(
         refreshToken,
         accessToken,
