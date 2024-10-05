@@ -7,7 +7,7 @@ import { JwtService } from '@nestjs/jwt';
 import { User } from 'src/user/entites/user.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Auth } from './entites/auth.entity';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 
 export type ReturnValidateUser = User & {
   isAleradyUser: boolean;
@@ -23,6 +23,8 @@ export class AuthService {
 
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+
+    private dataSource: DataSource,
   ) {}
 
   async validateUser(payload: {
@@ -154,6 +156,33 @@ export class AuthService {
 
   async logout(kakaoMemberid: number) {
     await this.removeRefreshToken(kakaoMemberid);
+  }
+
+  async leaveUser(userId: string) {
+    const queryRunner = this.dataSource.createQueryRunner();
+
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      const user = await this.userRepository.findOne({
+        where: { kakaoMemberId: +userId },
+        relations: ['profile', 'instructor', 'member'],
+      });
+
+      if (!user) {
+        throw new NotFoundException('User not found');
+      }
+
+      await queryRunner.manager.remove(user);
+
+      await queryRunner.commitTransaction();
+    } catch (err) {
+      await queryRunner.rollbackTransaction();
+      throw err;
+    } finally {
+      await queryRunner.release();
+    }
   }
 
   private async findById(id: string): Promise<User | undefined> {

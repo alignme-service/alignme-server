@@ -19,7 +19,7 @@ export class Profile {
   @UpdateDateColumn({ nullable: true })
   updatedAt: Date;
 
-  @OneToOne(() => User, (user) => user.profile)
+  @OneToOne(() => User, (user) => user.profile, { onDelete: 'CASCADE' })
   @JoinColumn()
   user: User;
 }

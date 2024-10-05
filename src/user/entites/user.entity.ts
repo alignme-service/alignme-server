@@ -77,26 +77,28 @@ export class User {
   @Column({
     type: 'enum',
     enum: Object.values(UserRole),
-    default: UserRole.MEMEBER,
+    default: UserRole.MEMBER,
   })
   role: UserRole;
 
-  @OneToOne(() => Auth, (auth) => auth.user)
+  @OneToOne(() => Auth, (auth) => auth.user, { cascade: true })
   auth: Auth;
 
-  @OneToOne(() => Profile, (profile) => profile.user)
+  @OneToOne(() => Profile, (profile) => profile.user, { cascade: true })
   profile: Profile;
 
-  @ManyToOne(() => Studio, (studio) => studio.users)
+  @ManyToOne(() => Studio, (studio) => studio.users, { cascade: true })
   @JoinColumn()
   studio: Studio;
 
-  @OneToOne(() => Manager, (manager) => manager.user)
+  @OneToOne(() => Manager, (manager) => manager.user, { cascade: true })
   manager: Manager;
 
-  @OneToOne(() => Instructor, (instructor) => instructor.user)
+  @OneToOne(() => Instructor, (instructor) => instructor.user, {
+    cascade: true,
+  })
   instructor: Instructor;
 
-  @OneToOne(() => Member, (member) => member.user)
+  @OneToOne(() => Member, (member) => member.user, { cascade: true })
   member: Member;
 }

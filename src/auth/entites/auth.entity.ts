@@ -21,7 +21,7 @@ export class Auth {
   // @UpdateDateColumn()
   // updatedAt: Date;
 
-  @OneToOne(() => User, (user) => user.auth)
+  @OneToOne(() => User, (user) => user.auth, { onDelete: 'CASCADE' })
   @JoinColumn()
   user: User;
 }

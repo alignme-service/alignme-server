@@ -12,6 +12,6 @@ export class Studio {
   @Column({ nullable: true })
   studioRegionName: string;
 
-  @OneToMany(() => User, (user) => user.studio)
+  @OneToMany(() => User, (user) => user.studio, { onDelete: 'CASCADE' })
   users: User[];
 }

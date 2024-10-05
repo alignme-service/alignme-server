@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Post,
+  Delete,
   Query,
   Req,
   UseGuards,
@@ -14,6 +15,7 @@ import { CreateManagerDto } from './dto/createManager.dto';
 import { BaseCreateUserDto } from './dto/baseCreateUser.dto';
 import { CreateMemberDto } from './dto/createMember.dto';
 import { GetAccessToken } from '../decorators/get-access-token.decorator';
+import { JoinStatus } from './constant/join-status.enum';
 
 @Controller('users')
 export class UserController {
@@ -110,6 +112,70 @@ export class UserController {
     return this.userService.getInstructors(
       isNaN(parsedPage) ? 1 : parsedPage,
       isNaN(parsedLimit) ? 10 : parsedLimit,
+    );
+  }
+
+  @Get('join-requests')
+  @ApiOperation({ summary: '가입 대기 중인 사용자 목록 조회' })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'offset',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'max 10',
+  })
+  @ApiResponse({
+    status: 200,
+    description: '성공',
+  })
+  @Get('join-requests')
+  async getJoinRequests(
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 10,
+  ) {
+    return this.userService.getJoinRequests(page, limit);
+  }
+
+  @Post('approve-join-request')
+  @ApiOperation({ summary: '가입 요청 승인' })
+  @ApiResponse({ status: 200, description: '성공' })
+  @ApiResponse({ status: 404, description: '사용자를 찾을 수 없음' })
+  async approveJoinRequest(
+    @Query('userId') userId: number,
+    @GetAccessToken() accessToken: string,
+    @Body('isApprove') isApprove: JoinStatus,
+  ) {
+    return this.userService.approveJoinRequest(accessToken, isApprove);
+  }
+
+  // 유저 내보내기
+  @Delete('leave-user')
+  @ApiOperation({ summary: '유저 내보내기' })
+  @ApiResponse({ status: 200, description: '성공' })
+  @ApiResponse({ status: 404, description: '사용자를 찾을 수 없음' })
+  async leaveUser(@GetAccessToken() accessToken: string) {
+    return this.userService.leaveUser(accessToken);
+  }
+
+  // 소속강사 변경하기
+  @Post('change-instructor')
+  @ApiOperation({ summary: '소속강사 변경하기' })
+  @ApiResponse({ status: 200, description: '성공' })
+  @ApiResponse({ status: 404, description: '사용자를 찾을 수 없음' })
+  async changeInstructor(
+    @GetAccessToken() accessToken: string,
+    @Body('instructorId') instructorId: string,
+    @Body('memberId') memberId: string,
+  ) {
+    return this.userService.changeInstructor(
+      accessToken,
+      instructorId,
+      memberId,
     );
   }
 }
