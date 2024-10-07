@@ -8,6 +8,7 @@ import { AppService } from './app.service';
 import { ProfileModule } from './profile/profile.module';
 import { AwsModule } from './aws/aws.module';
 import { UtilsModule } from './utils/utils.module';
+import { ContentModule } from './content/content.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { UtilsModule } from './utils/utils.module';
     ProfileModule,
     AwsModule,
     UtilsModule,
+    ContentModule,
   ],
   controllers: [AppController],
   providers: [AppService],

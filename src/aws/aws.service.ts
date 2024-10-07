@@ -1,6 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import {
+  DeleteObjectCommand,
+  PutObjectCommand,
+  S3Client,
+} from '@aws-sdk/client-s3';
 
 @Injectable()
 export class AwsService {
@@ -21,12 +25,12 @@ export class AwsService {
     fileName: string, // 업로드될 파일의 이름
     file: Express.Multer.File, // 업로드할 파일
     ext: string, // 파일 확장자
-    contentType: 'profile' | 'lecture',
+    contentType: 'profile' | 'content',
   ) {
     // AWS S3에 이미지 업로드 명령을 생성합니다. 파일 이름, 파일 버퍼, 파일 접근 권한, 파일 타입 등을 설정합니다.
     const command = new PutObjectCommand({
       Bucket: this.configService.get('AWS_S3_BUCKET_NAME'), // S3 버킷 이름
-      Key: `${contentType === 'profile' ? 'profile' : 'lecture'}/${fileName}`, // 업로드될 파일의 이름
+      Key: `${contentType === 'profile' ? 'profile' : 'content'}/${fileName}`, // 업로드될 파일의 이름
       Body: file.buffer, // 업로드할 파일
       ACL: 'public-read', // 파일 접근 권한
       ContentType: `image/${ext}`, // 파일 타입
@@ -36,6 +40,29 @@ export class AwsService {
     await this.s3Client.send(command);
 
     // 업로드된 이미지의 URL을 반환합니다.
-    return `https://s3.${process.env.AWS_REGION}.amazonaws.com/${process.env.AWS_S3_BUCKET_NAME}/${contentType === 'profile' ? 'profile' : 'lecture'}/${fileName}`;
+    return `https://s3.${process.env.AWS_REGION}.amazonaws.com/${process.env.AWS_S3_BUCKET_NAME}/${contentType === 'profile' ? 'profile' : 'content'}/${fileName}`;
+  }
+
+  async deleteFileFromS3(
+    fileName: string, // 삭제할 파일의 이름
+    contentType: 'profile' | 'content',
+  ): Promise<boolean> {
+    try {
+      // AWS S3에서 파일 삭제 명령을 생성합니다.
+      const command = new DeleteObjectCommand({
+        Bucket: this.configService.get('AWS_S3_BUCKET_NAME'), // S3 버킷 이름
+        Key: `${contentType === 'profile' ? 'profile' : 'content'}/${fileName}`, // 삭제할 파일의 경로
+      });
+
+      // 생성된 명령을 S3 클라이언트에 전달하여 파일 삭제를 수행합니다.
+      await this.s3Client.send(command);
+
+      // 삭제 성공 시 true를 반환합니다.
+      return true;
+    } catch (error) {
+      // 삭제 실패 시 에러를 콘솔에 출력하고 false를 반환합니다.
+      console.error('Error deleting file from S3:', error);
+      return false;
+    }
   }
 }

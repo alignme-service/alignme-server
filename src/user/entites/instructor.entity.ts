@@ -10,6 +10,7 @@ import {
 import { User } from './user.entity';
 import { Member } from './member.entity';
 import { JoinStatus } from '../constant/join-status.enum';
+import { Content } from '../../content/entites/content.entity';
 
 @Entity()
 export class Instructor {
@@ -25,4 +26,7 @@ export class Instructor {
 
   @OneToMany(() => Member, (member) => member.instructor)
   members: Member[];
+
+  @OneToMany(() => Content, (content) => content.instructor)
+  contents: Content[];
 }

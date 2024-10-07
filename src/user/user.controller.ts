@@ -5,7 +5,6 @@ import {
   Post,
   Delete,
   Query,
-  Req,
   UseGuards,
 } from '@nestjs/common';
 import { UserService } from './user.service';
@@ -105,6 +104,7 @@ export class UserController {
   async getInstructors(
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 10,
+    @GetAccessToken() accessToken: string,
   ) {
     const parsedPage = parseInt(page as any, 10);
     const parsedLimit = parseInt(limit as any, 10);
@@ -112,6 +112,7 @@ export class UserController {
     return this.userService.getInstructors(
       isNaN(parsedPage) ? 1 : parsedPage,
       isNaN(parsedLimit) ? 10 : parsedLimit,
+      accessToken,
     );
   }
 
@@ -137,8 +138,9 @@ export class UserController {
   async getJoinRequests(
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 10,
+    @GetAccessToken() accessToken: string,
   ) {
-    return this.userService.getJoinRequests(page, limit);
+    return this.userService.getJoinRequests(page, limit, accessToken);
   }
 
   @Post('approve-join-request')
@@ -158,8 +160,8 @@ export class UserController {
   @ApiOperation({ summary: '유저 내보내기' })
   @ApiResponse({ status: 200, description: '성공' })
   @ApiResponse({ status: 404, description: '사용자를 찾을 수 없음' })
-  async leaveUser(@GetAccessToken() accessToken: string) {
-    return this.userService.leaveUser(accessToken);
+  async leaveUser(@Query() userId: string) {
+    return this.userService.leaveUser(userId);
   }
 
   // 소속강사 변경하기
@@ -167,6 +169,19 @@ export class UserController {
   @ApiOperation({ summary: '소속강사 변경하기' })
   @ApiResponse({ status: 200, description: '성공' })
   @ApiResponse({ status: 404, description: '사용자를 찾을 수 없음' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        instructorId: {
+          type: 'string',
+        },
+        memberId: {
+          type: 'string',
+        },
+      },
+    },
+  })
   async changeInstructor(
     @GetAccessToken() accessToken: string,
     @Body('instructorId') instructorId: string,

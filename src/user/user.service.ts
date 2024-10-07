@@ -194,12 +194,24 @@ export class UserService {
     return user;
   }
 
-  async getInstructors(page: number = 1, limit: number = 10) {
+  async getInstructors(
+    page: number = 1,
+    limit: number = 10,
+    accessToken: string,
+  ) {
+    const { userId } = this.authService.decodeTokenUserId(accessToken);
+
+    const user = await this.userRepository.findOne({
+      where: { kakaoMemberId: +userId },
+      relations: ['studio'],
+    });
+
     const [instructors, total] = await this.instructorRepository.findAndCount({
+      where: { user: { studio: { id: user.studio.id } } },
       take: limit,
       skip: (page - 1) * limit,
-      order: { id: 'ASC' }, // ID 기준으로 정렬, 필요에 따라 변경 가능
-      relations: ['user'], // 강사와 연결된 사용자 정보도 가져옵니다.
+      order: { id: 'ASC' },
+      relations: ['user'],
     });
 
     return {
@@ -249,7 +261,13 @@ export class UserService {
   }
 
   // 유저 가입 요청 목록 조회
-  async getJoinRequests(page: number = 1, limit: number = 10) {
+  async getJoinRequests(
+    page: number = 1,
+    limit: number = 10,
+    accessToken: string,
+  ) {
+    const { userId } = this.authService.decodeTokenUserId(accessToken);
+
     const queryBuilder = this.userRepository.createQueryBuilder('user');
 
     const [pendingUsers, total] = await queryBuilder
@@ -355,9 +373,7 @@ export class UserService {
     return user.member;
   }
 
-  async leaveUser(accessToken: string) {
-    const { userId } = this.authService.decodeTokenUserId(accessToken);
-
+  async leaveUser(userId: string) {
     const user = await this.userRepository.findOne({
       where: { kakaoMemberId: +userId },
     });
