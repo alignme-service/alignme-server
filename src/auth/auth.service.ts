@@ -10,7 +10,9 @@ import { Auth } from './entites/auth.entity';
 import { DataSource, Repository } from 'typeorm';
 
 export type ReturnValidateUser = User & {
-  isAleradyUser: boolean;
+  isAlerady: boolean;
+  accessToken: string;
+  refreshToken: string;
 };
 
 @Injectable()
@@ -35,12 +37,13 @@ export class AuthService {
   }): Promise<ReturnValidateUser | null> {
     const { kakaoMemberId, email, name } = payload;
 
-    let isAleradyUser = true;
+    let isAlerady = true;
 
     const findUser: User = await this.findkakaoMemberId(kakaoMemberId);
 
+    // 유저없을때 신규가입 처리 + 토큰 발급
     if (findUser === null) {
-      isAleradyUser = false;
+      isAlerady = false;
 
       this.userRepository.create({
         kakaoMemberId,
@@ -55,8 +58,59 @@ export class AuthService {
         name,
         createdAt: new Date(),
       });
+
+      const accessToken = await this.generateAccessToken(
+        kakaoMemberId,
+        email,
+        name,
+      );
+      const refreshToken = await this.generateRefreshToken(kakaoMemberId);
+      await this.setCurrentRefreshToken(kakaoMemberId, refreshToken);
+
+      return {
+        isAlerady: isAlerady,
+        accessToken,
+        refreshToken,
+        ...findUser,
+      };
     }
-    return { ...findUser, isAleradyUser: isAleradyUser };
+
+    // 유저 있을때 리프레시토큰 유효성 검사
+    const { isNearExpiration } = await this.verifyRefreshToken(
+      findUser.auth.refreshToken,
+    );
+
+    // 유저있고 리프레시토큰 만료시 토큰 재발급
+    if (isNearExpiration) {
+      const newAccessToken = await this.generateAccessToken(
+        kakaoMemberId,
+        email,
+        name,
+      );
+      const newRefreshToken = await this.generateRefreshToken(kakaoMemberId);
+
+      await this.setCurrentRefreshToken(kakaoMemberId, newRefreshToken);
+
+      return {
+        isAlerady: isAlerady,
+        accessToken: newAccessToken,
+        refreshToken: newRefreshToken,
+        ...findUser,
+      };
+    }
+
+    // 유저있고 리프레시토큰 유효시 access token만 재발급
+    const accessToken = await this.generateAccessToken(
+      kakaoMemberId,
+      email,
+      name,
+    );
+    return {
+      isAlerady,
+      accessToken,
+      refreshToken: findUser.auth.refreshToken,
+      ...findUser,
+    };
   }
 
   async generateAccessToken(
@@ -69,25 +123,26 @@ export class AuthService {
     return this.jwtService.sign(payload);
   }
 
-  async generateRefreshToken(user: User): Promise<string> {
-    const payload = { sub: user.id };
+  async generateRefreshToken(userId: number): Promise<string> {
+    const payload = { sub: userId };
     return this.jwtService.sign(payload, { expiresIn: '7d' });
   }
 
   async refreshToken(refreshToken: string, accessToken: string) {
-    try {
-      const userInfo = this.decodeTokenUserId(accessToken);
+    const userInfo = this.decodeTokenUserId(accessToken);
+    const authTokenInfo = await this.findById(userInfo.userId);
 
-      const payload = this.jwtService.verify(refreshToken);
-      const authTokenInfo = await this.findById(userInfo.userId);
+    if (!authTokenInfo) {
+      throw new Error('Invalid user info');
+    }
 
-      if (!authTokenInfo) {
-        throw new Error('Invalid refresh token');
-      }
+    const { isNearExpiration } = await this.verifyRefreshToken(refreshToken);
 
-      if (!payload) {
-        throw new UnauthorizedException('Invalid refresh token');
-      }
+    if (isNearExpiration) {
+      // throw new UnauthorizedException({
+      //   errorCode: 'EXPIRED_TOKEN',
+      //   message: 'expired token',
+      // });
 
       const newAccessToken = this.jwtService.sign({
         userId: userInfo.userId,
@@ -105,8 +160,6 @@ export class AuthService {
         accessToken: newAccessToken,
         refreshToken: newRefreshToken,
       };
-    } catch (error) {
-      throw new UnauthorizedException('Invalid refresh token');
     }
   }
 
@@ -116,11 +169,14 @@ export class AuthService {
     name: string;
   } {
     try {
-      const decoded = this.jwtService.verify(token);
+      // const decoded = this.jwtService.verify(token);
+      const decoded = this.jwtService.decode(token);
+
       const { userId, email, name } = decoded;
+
       return { userId, email, name };
-    } catch (error) {
-      throw new Error('Invalid token');
+    } catch {
+      throw new NotFoundException('failed decoded token');
     }
   }
 
@@ -152,10 +208,6 @@ export class AuthService {
 
     auth.refreshToken = refreshToken;
     await this.authRepository.save(auth);
-  }
-
-  async logout(kakaoMemberid: number) {
-    await this.removeRefreshToken(kakaoMemberid);
   }
 
   async leaveUser(userId: string) {
@@ -208,29 +260,55 @@ export class AuthService {
     }
   }
 
-  private async removeRefreshToken(kakaoMemberId: number): Promise<void> {
-    try {
-      const user = await this.userRepository.findOne({
-        where: { kakaoMemberId },
-      });
-      if (!user) {
-        throw new Error('User not found');
-      }
-      await this.authRepository.delete({ user: { id: user.id } });
-    } catch (error) {
-      console.error('Error removing refresh token:', error);
-      throw new Error('Failed to remove refresh token');
-    }
-  }
+  // Todo: 회원 탈퇴로 변경
+  // private async removeAccessToken(kakaoMemberId: number): Promise<void> {
+  //   try {
+  //     const user = await this.userRepository.findOne({
+  //       where: { kakaoMemberId },
+  //     });
+  //     if (!user) {
+  //       throw new Error('User not found');
+  //     }
+  //     await this.authRepository.delete({ user: { id: user.id } });
+  //   } catch (error) {
+  //     console.error('Error removing refresh token:', error);
+  //     throw new Error('Failed to remove refresh token');
+  //   }
+  // }
 
   private async findkakaoMemberId(kakaoMemberId: number): Promise<User | null> {
     try {
       const findUser = await this.userRepository.findOne({
         where: { kakaoMemberId },
+        relations: ['auth'],
       });
       return findUser;
     } catch {
       return null;
     }
+  }
+
+  private async verifyRefreshToken(
+    refreshToken: string,
+  ): Promise<{ isNearExpiration: boolean }> {
+    // const payload = await this.jwtService.verify(refreshToken);
+    const payload = this.jwtService.decode(refreshToken);
+    const auth = await this.authRepository.findOne({
+      where: { user: { kakaoMemberId: +payload.sub } },
+      relations: ['user'],
+    });
+
+    if (!auth) {
+      throw new NotFoundException('Invalid user');
+    }
+
+    // 토큰 만료 7일 전인지 확인
+    const expirationDate = new Date(payload.exp * 1000);
+    const now = new Date();
+    const sevenDays = 7 * 24 * 60 * 60 * 1000; // 7일을 밀리초로 표현
+    const isNearExpiration =
+      expirationDate.getTime() - now.getTime() < sevenDays;
+
+    return { isNearExpiration };
   }
 }

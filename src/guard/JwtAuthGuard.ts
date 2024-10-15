@@ -17,9 +17,6 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     super();
   }
 
-  // canActivate(context: ExecutionContext) {
-  //   return super.canActivate(context);
-  // }
   canActivate(context: ExecutionContext) {
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
       context.getHandler(),
@@ -31,9 +28,15 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     return super.canActivate(context);
   }
 
-  handleRequest(err, user, info) {
+  handleRequest(err, user) {
     if (err || !user) {
-      throw err || new UnauthorizedException('Invalid token');
+      throw (
+        err ||
+        new UnauthorizedException({
+          errorCode: 'EXPIRED_TOKEN',
+          message: '토큰이 만료되었습니다.',
+        })
+      );
     }
     return user;
   }

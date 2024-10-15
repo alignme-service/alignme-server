@@ -7,7 +7,6 @@ import {
   NotFoundException,
   Post,
   Query,
-  RawBodyRequest,
   Req,
   Res,
   UnauthorizedException,
@@ -22,7 +21,13 @@ import { Response } from 'express';
 import { JwtAuthGuard } from 'src/guard/JwtAuthGuard';
 import { Public } from 'src/public.decorator';
 import { UtilsService } from '../utils/utils.service';
-import { ApiBody, ApiOperation, ApiQuery, ApiResponse } from '@nestjs/swagger';
+import {
+  ApiBody,
+  ApiExcludeEndpoint,
+  ApiOperation,
+  ApiQuery,
+  ApiResponse,
+} from '@nestjs/swagger';
 import { GetAccessToken } from '../decorators/get-access-token.decorator';
 
 @Controller('auth')
@@ -33,6 +38,7 @@ export class AuthController {
     private readonly utilsService: UtilsService,
   ) {}
 
+  @ApiExcludeEndpoint()
   @Get('/user/login/kakao')
   @UseGuards(AuthGuard('kakao'))
   async kakaoAuth(@Req() _req: Request) {}
@@ -44,9 +50,29 @@ export class AuthController {
     name: 'code',
     description: '클라이언트에서 redirect uri에 포함된 code',
   })
-  @ApiResponse({ status: 200, description: 'isAleradyUser: false -> 신규유저' })
-  @Get('/user/login/kakao/access')
-  async kakaoAuth2(@Query('code') code: string, @Res() res: Response) {
+  @ApiResponse({
+    status: 200,
+    description: 'isAleradyUser: false -> 신규유저',
+    schema: {
+      type: 'object',
+      properties: {
+        message: { type: 'string' },
+        data: {
+          type: 'object',
+          properties: {
+            isAleradyUser: { type: 'boolean' },
+            accessToken: { type: 'string' },
+            refreshToken: { type: 'string' },
+            kakaoMemberId: { type: 'string' },
+            email: { type: 'string' },
+            name: { type: 'string' },
+          },
+        },
+      },
+    },
+  })
+  @Get('/user/login')
+  async login(@Query('code') code: string, @Res() res: Response) {
     const GET_TOKEN_URL = this.configService.get('GET_TOKEN_URL');
     const GET_USER_INFO_URL = this.configService.get('GET_USER_INFO_URL');
     const GRANT_TYPE = this.configService.get('GRANT_TYPE');
@@ -85,35 +111,24 @@ export class AuthController {
       };
 
       // 기존 유저있는지 확인
-      const authUser: ReturnValidateUser =
+      const { isAlerady, accessToken, refreshToken }: ReturnValidateUser =
         await this.authService.validateUser(authPayload);
 
-      // JWT 토큰 생성
-      const access_token = await this.authService.generateAccessToken(
-        userInfo.id,
-        userInfo.kakao_account.email,
-        userInfo.kakao_account.name,
-      );
-      const refresh_token = await this.authService.generateRefreshToken(data);
-
-      // 유저 객체에 refresh-token 데이터 저장
-      await this.authService.setCurrentRefreshToken(userInfo.id, refresh_token);
-
-      res.setHeader('Authorization', 'Bearer ' + [access_token, refresh_token]);
-      res.cookie('access_token', access_token, {
+      res.setHeader('Authorization', 'Bearer ' + [accessToken, refreshToken]);
+      res.cookie('accessToken', accessToken, {
         httpOnly: true,
       });
-      res.cookie('refresh_token', refresh_token, {
+      res.cookie('refreshToken', refreshToken, {
         httpOnly: true,
       });
 
       res.status(200).json({
         message: 'Kakao login successful',
         data: {
-          isAleradyUser: authUser.isAleradyUser,
-          accessToken: access_token,
-          refreshToken: refresh_token,
-          kakaoMemberId: userInfo.id,
+          isAlerady,
+          accessToken,
+          refreshToken,
+          ...authPayload,
         },
       });
     } catch (error) {
@@ -145,40 +160,41 @@ export class AuthController {
     @Body('refreshToken') refreshToken: string,
     @GetAccessToken() accessToken: string,
   ) {
-    try {
-      const tokens = await this.authService.refreshToken(
-        refreshToken,
-        accessToken,
-      );
-      return {
-        accessToken: tokens.accessToken,
-        refreshToken: tokens.refreshToken,
-      };
-    } catch (error) {
-      throw new UnauthorizedException('Invalid refresh token');
-    }
+    // try {
+    const tokens = await this.authService.refreshToken(
+      refreshToken,
+      accessToken,
+    );
+    return {
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+    };
+    // }
+    // catch (error) {
+    //   throw new NotFoundException('Invalid refresh token');
+    // }
   }
 
-  @ApiOperation({
-    description: '로그아웃',
-  })
-  @ApiBody({
-    description: '로그아웃할 유저의 kakaoMemberId',
-    schema: {
-      type: 'object',
-      properties: {
-        kakaoMemberId: {
-          type: 'string',
-        },
-      },
-    },
-    type: String,
-  })
-  @Post('logout')
-  async logout(@Req() request: Request) {
-    const accessToken = request.cookies['accessToken'];
-
-    await this.authService.logout(+accessToken);
-    return { message: 'Logout successful' };
-  }
+  // @ApiOperation({
+  //   description: '로그아웃',
+  // })
+  // @ApiBody({
+  //   description: '로그아웃할 유저의 kakaoMemberId',
+  //   schema: {
+  //     type: 'object',
+  //     properties: {
+  //       kakaoMemberId: {
+  //         type: 'string',
+  //       },
+  //     },
+  //   },
+  //   type: String,
+  // })
+  // @Post('logout')
+  // async logout(@Req() request: Request) {
+  //   const accessToken = request.cookies['accessToken'];
+  //
+  //   await this.authService.logout(+accessToken);
+  //   return { message: 'Logout successful' };
+  // }
 }

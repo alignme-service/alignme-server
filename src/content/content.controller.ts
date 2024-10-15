@@ -8,6 +8,7 @@ import {
   Post,
   Query,
   UploadedFile,
+  UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { ContentService } from './content.service';
@@ -16,6 +17,7 @@ import { CreateContentDto } from './dto/content-dto';
 import { GetAccessToken } from '../decorators/get-access-token.decorator';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ContentLevelEnum } from './constant/content.enum';
+import { JwtAuthGuard } from '../guard/JwtAuthGuard';
 
 @Controller('content')
 export class ContentController {
@@ -25,6 +27,7 @@ export class ContentController {
   @ApiResponse({ status: 200, description: '강사 목록을 반환함' })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
+  @UseGuards(JwtAuthGuard)
   async getContents(
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 10,
@@ -50,10 +53,10 @@ export class ContentController {
         title: { type: 'string' },
         description: { type: 'string' },
         level: { type: 'string', enum: Object.values(ContentLevelEnum) },
-        instructorId: { type: 'string' },
       },
     },
   })
+  @UseGuards(JwtAuthGuard)
   async createContent(
     @Body() createContentDto: CreateContentDto,
     @GetAccessToken() accessToken: string,
@@ -70,6 +73,7 @@ export class ContentController {
   @ApiOperation({ summary: '콘텐츠 수정' })
   @ApiResponse({ status: 200, description: '성공' })
   @UseInterceptors(FileInterceptor('file'))
+  @UseGuards(JwtAuthGuard)
   async updateContent(
     @Param('id') id: string,
     @Body() updateContentDto: Partial<CreateContentDto>,
@@ -87,6 +91,7 @@ export class ContentController {
   @Delete(':id')
   @ApiOperation({ summary: '콘텐츠 삭제' })
   @ApiResponse({ status: 200, description: '성공' })
+  @UseGuards(JwtAuthGuard)
   async deleteContent(
     @Param('id') id: string,
     @GetAccessToken() accessToken: string,

@@ -126,7 +126,9 @@ export class UserService {
 
     await this.instructorRepository.save(createdInstructor);
 
-    return createdInstructor;
+    return {
+      instructorId: createdInstructor.id,
+    };
   }
 
   async createManager(accessToken: string, createManager: CreateManagerDto) {
@@ -160,7 +162,9 @@ export class UserService {
 
     await this.managerRepository.save(createdManager);
 
-    return createdManager;
+    return {
+      managerId: createdManager.id,
+    };
   }
 
   private async findUser(accessToken: string): Promise<User> {
@@ -226,13 +230,20 @@ export class UserService {
   }
 
   async getMembersFromInstructor(
-    instructorId: string,
     page: number = 1,
     limit: number = 5,
+    accessToken: string,
   ) {
+    const { userId } = this.authService.decodeTokenUserId(accessToken);
+
+    const user = await this.userRepository.findOne({
+      where: { kakaoMemberId: +userId },
+      relations: ['instructor'],
+    });
+
     const instructor = await this.instructorRepository.findOne({
-      where: { id: instructorId },
-      relations: ['members', 'members.user'],
+      where: { id: user.instructor.id },
+      relations: ['members', 'members.user', 'user'],
     });
 
     if (!instructor) {
@@ -240,7 +251,7 @@ export class UserService {
     }
 
     const [members, total] = await this.memberRepository.findAndCount({
-      where: { instructor: { id: instructorId } },
+      where: { instructor: { id: user.instructor.id } },
       relations: ['user'],
       take: limit,
       skip: (page - 1) * limit,
@@ -250,7 +261,17 @@ export class UserService {
     const users = members.map((member) => member.user);
 
     return {
-      data: users,
+      data: {
+        users: users.map((user) => ({
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          createdAt: user.createdAt,
+          kakaoMemberId: user.kakaoMemberId,
+          instructor: instructor.user,
+        })),
+      },
       meta: {
         total,
         page,
@@ -268,9 +289,15 @@ export class UserService {
   ) {
     const { userId } = this.authService.decodeTokenUserId(accessToken);
 
+    const user = await this.userRepository.findOne({
+      where: { kakaoMemberId: +userId },
+      relations: ['studio', 'instructor', 'member'],
+    });
+
     const queryBuilder = this.userRepository.createQueryBuilder('user');
 
     const [pendingUsers, total] = await queryBuilder
+      .setParameter('studioId', user.studio.id)
       .leftJoinAndSelect('user.instructor', 'instructor')
       .leftJoinAndSelect('user.member', 'member')
       .where(
@@ -280,6 +307,14 @@ export class UserService {
           );
         }),
       )
+      // .andWhere(
+      //   new Brackets((qb) => {
+      //     qb.where('instructor.user.studioId = :studioId').orWhere(
+      //       'member.user.studioId = :studioId',
+      //     );
+      //   }),
+      // )
+      .andWhere('user.studioId = :studioId', { studioId: user.studio.id })
       .orderBy('user.createdAt', 'DESC')
       .skip((page - 1) * limit)
       .take(limit)
@@ -288,7 +323,6 @@ export class UserService {
     const formattedUsers = pendingUsers.map((user) => ({
       id: user.id,
       name: user.name,
-      email: user.email,
       role: user.role,
       instructor: user.instructor
         ? {

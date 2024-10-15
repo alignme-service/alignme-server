@@ -20,11 +20,13 @@ export class Instructor {
   @Column({ type: 'enum', enum: JoinStatus, default: JoinStatus.PENDING })
   joinStatus: JoinStatus;
 
-  @OneToOne(() => User, (user) => user.instructor)
+  @OneToOne(() => User, (user) => user.instructor, { onDelete: 'CASCADE' })
   @JoinColumn()
   user: User;
 
-  @OneToMany(() => Member, (member) => member.instructor)
+  @OneToMany(() => Member, (member) => member.instructor, {
+    onDelete: 'CASCADE',
+  })
   members: Member[];
 
   @OneToMany(() => Content, (content) => content.instructor)

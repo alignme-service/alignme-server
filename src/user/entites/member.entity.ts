@@ -18,7 +18,7 @@ export class Member {
   @Column({ type: 'enum', enum: JoinStatus, default: JoinStatus.PENDING })
   joinStatus: JoinStatus;
 
-  @OneToOne(() => User, (user) => user.member)
+  @OneToOne(() => User, (user) => user.member, { onDelete: 'CASCADE' })
   @JoinColumn()
   user: User;
 

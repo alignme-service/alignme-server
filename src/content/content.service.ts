@@ -97,7 +97,7 @@ export class ContentService {
     });
 
     if (!user || user.role !== 'instructor') {
-      throw new UnauthorizedException('Only instructors can update content');
+      throw new NotFoundException('Only instructors can update content');
     }
 
     const content = await this.contentRepository.findOne({
@@ -133,7 +133,7 @@ export class ContentService {
     });
 
     if (!user || user.role !== 'instructor') {
-      throw new UnauthorizedException('Only instructors can delete content');
+      throw new NotFoundException('Only instructors can delete content');
     }
 
     const content = await this.contentRepository.findOne({
