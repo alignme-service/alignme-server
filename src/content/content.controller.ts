@@ -39,13 +39,13 @@ export class ContentController {
     return this.contentService.getContents(
       isNaN(parsedPage) ? 1 : parsedPage,
       isNaN(parsedLimit) ? 10 : parsedLimit,
+      accessToken,
     );
   }
 
   @Post()
   @ApiOperation({ summary: '콘텐츠 생성' })
   @ApiResponse({ status: 200, description: '성공' })
-  @UseInterceptors(FileInterceptor('file'))
   @ApiBody({
     schema: {
       type: 'object',
@@ -57,10 +57,11 @@ export class ContentController {
     },
   })
   @UseGuards(JwtAuthGuard)
+  @UseInterceptors(FileInterceptor('file'))
   async createContent(
+    @UploadedFile() file: Express.Multer.File,
     @Body() createContentDto: CreateContentDto,
     @GetAccessToken() accessToken: string,
-    @UploadedFile() file: Express.Multer.File,
   ) {
     return this.contentService.createContent(
       createContentDto,

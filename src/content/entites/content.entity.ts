@@ -1,4 +1,5 @@
 import {
+  Check,
   Column,
   CreateDateColumn,
   Entity,
@@ -7,11 +8,17 @@ import {
 } from 'typeorm';
 import { ContentLevelEnum } from '../constant/content.enum';
 import { Instructor } from '../../user/entites/instructor.entity';
+import { Manager } from '../../user/entites/manager.entity';
 
 @Entity()
+@Check(`
+  ("instructorId" IS NULL AND "managerId" IS NULL) OR
+  ("instructorId" IS NOT NULL AND "managerId" IS NULL) OR
+  ("instructorId" IS NULL AND "managerId" IS NOT NULL)
+`)
 export class Content {
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
+  @PrimaryGeneratedColumn()
+  id: number;
 
   @Column()
   imageUrl: string;
@@ -34,4 +41,7 @@ export class Content {
 
   @ManyToOne(() => Instructor, (instructor) => instructor.contents)
   instructor: Instructor;
+
+  @ManyToOne(() => Manager, (manager) => manager.contents)
+  manager: Manager;
 }

@@ -3,12 +3,14 @@ import {
   Entity,
   JoinColumn,
   ManyToOne,
+  OneToMany,
   OneToOne,
   PrimaryGeneratedColumn,
 } from 'typeorm';
 import { User } from './user.entity';
 import { Instructor } from './instructor.entity';
 import { JoinStatus } from '../constant/join-status.enum';
+import { Manager } from './manager.entity';
 
 @Entity()
 export class Member {
@@ -24,4 +26,12 @@ export class Member {
 
   @ManyToOne(() => Instructor, (instructor) => instructor.members)
   instructor: Instructor;
+
+  // @OneToMany(() => Member, (member) => member.manager, {
+  //   onDelete: 'CASCADE',
+  // })
+  // members: Member[];
+
+  @ManyToOne(() => Manager, (manager) => manager.members)
+  manager: Manager;
 }

@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Brackets, DataSource, Repository } from 'typeorm';
+import { DataSource, In, Repository } from 'typeorm';
 import { Instructor } from './entites/instructor.entity';
 import { AuthService } from '../auth/auth.service';
 import { User } from './entites/user.entity';
@@ -198,7 +198,7 @@ export class UserService {
     return user;
   }
 
-  async getInstructors(
+  async getInstructorsOnStudio(
     page: number = 1,
     limit: number = 10,
     accessToken: string,
@@ -207,19 +207,51 @@ export class UserService {
 
     const user = await this.userRepository.findOne({
       where: { kakaoMemberId: +userId },
-      relations: ['studio'],
+      relations: ['studio', 'profile'],
     });
 
+    if (user.role !== UserRole.MANAGER) {
+      throw new NotFoundException('Invalid user role');
+    }
+
     const [instructors, total] = await this.instructorRepository.findAndCount({
-      where: { user: { studio: { id: user.studio.id } } },
+      where: {
+        user: { studio: { id: user.studio.id } },
+        joinStatus: JoinStatus.APPROVED,
+      },
       take: limit,
       skip: (page - 1) * limit,
       order: { id: 'ASC' },
-      relations: ['user'],
+      relations: ['user', 'user.profile'],
     });
 
+    const managers = await this.managerRepository.findOne({
+      where: { user: { studio: { id: user.studio.id } } },
+      relations: ['user', 'user.profile'],
+    });
+
+    const instructorList = instructors.map((instructor) => ({
+      id: instructor.id,
+      kakaoMemberId: instructor.user.kakaoMemberId,
+      name: instructor.user.name,
+      createdAt: instructor.user.createdAt,
+      profileImage: instructor.user.profile?.profile_image || null,
+    }));
+
+    const managerList = {
+      id: managers.id,
+      kakaoMemberId: managers.user.kakaoMemberId,
+      name: managers.user.name,
+      createdAt: managers.user.createdAt,
+      profileImage: managers.user.profile?.profile_image || null,
+    };
+
+    instructorList.push(managerList);
+
     return {
-      data: instructors,
+      data: {
+        instructors: instructorList,
+      },
       meta: {
         total,
         page,
@@ -229,7 +261,8 @@ export class UserService {
     };
   }
 
-  async getMembersFromInstructor(
+  async getMembers(
+    instructorId: string,
     page: number = 1,
     limit: number = 5,
     accessToken: string,
@@ -238,39 +271,37 @@ export class UserService {
 
     const user = await this.userRepository.findOne({
       where: { kakaoMemberId: +userId },
-      relations: ['instructor'],
+      relations: ['studio', 'instructor'],
     });
 
-    const instructor = await this.instructorRepository.findOne({
-      where: { id: user.instructor.id },
-      relations: ['members', 'members.user', 'user'],
-    });
-
-    if (!instructor) {
-      throw new NotFoundException('해당 강사를 찾을 수 없습니다.');
+    if (user.role !== UserRole.MANAGER) {
+      throw new NotFoundException('Invalid user role');
     }
 
-    const [members, total] = await this.memberRepository.findAndCount({
-      where: { instructor: { id: user.instructor.id } },
-      relations: ['user'],
-      take: limit,
-      skip: (page - 1) * limit,
-      order: { id: 'ASC' }, // ID 기준으로 정렬, 필요에 따라 변경 가능
-    });
+    const queryBuilder = this.userRepository.createQueryBuilder('user');
 
-    const users = members.map((member) => member.user);
+    const [users, total] = await queryBuilder
+      .leftJoinAndSelect('user.profile', 'profile')
+      .leftJoinAndSelect('user.member', 'member')
+      .where('user.studio.id = :studioId', { studioId: user.studio.id })
+      .andWhere('user.role = :role', { role: UserRole.MEMBER })
+      .andWhere('member.joinStatus = :status', { status: JoinStatus.APPROVED })
+      .orderBy('user.createdAt', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getManyAndCount();
+
+    const members = users.map((user) => ({
+      id: user.member.id,
+      kakaoMemberId: user.kakaoMemberId,
+      name: user.name,
+      createdAt: user.createdAt,
+      profileImage: user.profile?.profile_image || null,
+    }));
 
     return {
       data: {
-        users: users.map((user) => ({
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          role: user.role,
-          createdAt: user.createdAt,
-          kakaoMemberId: user.kakaoMemberId,
-          instructor: instructor.user,
-        })),
+        members,
       },
       meta: {
         total,
@@ -281,8 +312,102 @@ export class UserService {
     };
   }
 
-  // 유저 가입 요청 목록 조회
+  // async getMembers(page: number = 1, limit: number = 5, accessToken: string) {
+  //   // Todo: 매니저만 접근 가능하도록 롤 체크 필요
+  //
+  //   const { userId } = this.authService.decodeTokenUserId(accessToken);
+  //
+  //   const user = await this.userRepository.findOne({
+  //     where: { kakaoMemberId: +userId },
+  //     relations: ['instructor', 'manager'],
+  //   });
+  //
+  //   if (user.role === UserRole.MANAGER) {
+  //     const manager = await this.managerRepository.findOne({
+  //       where: { id: user.manager.id },
+  //       relations: ['members', 'members.user', 'user'],
+  //     });
+  //
+  //     if (!manager) {
+  //       throw new NotFoundException('해당 매니저를 찾을 수 없습니다.');
+  //     }
+  //
+  //     const [members, total] = await this.memberRepository.findAndCount({
+  //       where: { manager: { id: user.manager.id } },
+  //       relations: ['user', 'user.profile', 'user.member'],
+  //       take: limit,
+  //       skip: (page - 1) * limit,
+  //       order: { id: 'ASC' }, // ID 기준으로 정렬, 필요에 따라 변경 가능
+  //     });
+  //
+  //     const users = members.map((member) => member.user);
+  //
+  //     return {
+  //       data: {
+  //         users: users.map((user) => ({
+  //           id: user.member.id,
+  //           name: user.name,
+  //           createdAt: user.createdAt,
+  //           profileImage: user.profile?.profile_image || null,
+  //           manager: {
+  //             id: manager.id,
+  //             name: manager.user.name,
+  //           },
+  //         })),
+  //       },
+  //       meta: {
+  //         total,
+  //         page,
+  //         limit,
+  //         totalPages: Math.ceil(total / limit),
+  //       },
+  //     };
+  //   }
+  //
+  //   // 강사일때 강사 소속 회원 목록 조회
+  //   const instructor = await this.instructorRepository.findOne({
+  //     where: { id: user.instructor.id },
+  //     relations: ['members', 'members.user', 'user'],
+  //   });
+  //
+  //   if (!instructor) {
+  //     throw new NotFoundException('해당 강사를 찾을 수 없습니다.');
+  //   }
+  //
+  //   const [members, total] = await this.memberRepository.findAndCount({
+  //     where: { instructor: { id: user.instructor.id } },
+  //     relations: ['user', 'user.profile', 'user.member'],
+  //     take: limit,
+  //     skip: (page - 1) * limit,
+  //     order: { id: 'ASC' }, // ID 기준으로 정렬, 필요에 따라 변경 가능
+  //   });
+  //
+  //   const users = members.map((member) => member.user);
+  //
+  //   return {
+  //     data: {
+  //       users: users.map((user) => ({
+  //         id: user.member.id,
+  //         name: user.name,
+  //         createdAt: user.createdAt,
+  //         profileImage: user.profile?.profile_image || null,
+  //         instructor: {
+  //           id: instructor.id,
+  //           name: instructor.user.name,
+  //         },
+  //       })),
+  //     },
+  //     meta: {
+  //       total,
+  //       page,
+  //       limit,
+  //       totalPages: Math.ceil(total / limit),
+  //     },
+  //   };
+  // }
+
   async getJoinRequests(
+    type: UserRole,
     page: number = 1,
     limit: number = 10,
     accessToken: string,
@@ -294,54 +419,56 @@ export class UserService {
       relations: ['studio', 'instructor', 'member'],
     });
 
-    const queryBuilder = this.userRepository.createQueryBuilder('user');
+    if (user.role !== UserRole.MANAGER) {
+      throw new NotFoundException('Invalid user role');
+    }
+
+    const queryBuilder = this.userRepository
+      .createQueryBuilder('user')
+      .leftJoinAndSelect('user.studio', 'studio')
+      .leftJoinAndSelect('user.profile', 'profile')
+      .where('user.studioId = :studioId', { studioId: user.studio.id });
+
+    if (type === UserRole.INSTRUCTOR.toUpperCase()) {
+      queryBuilder
+        .leftJoinAndSelect('user.instructor', 'instructor')
+        .andWhere('instructor.joinStatus = :status', { status: 'pending' });
+    } else if (type === UserRole.MEMBER.toUpperCase()) {
+      queryBuilder
+        .leftJoinAndSelect('user.member', 'member')
+        .andWhere('member.joinStatus = :status', { status: 'pending' });
+    } else {
+      throw new NotFoundException('Invalid user type');
+    }
 
     const [pendingUsers, total] = await queryBuilder
-      .setParameter('studioId', user.studio.id)
-      .leftJoinAndSelect('user.instructor', 'instructor')
-      .leftJoinAndSelect('user.member', 'member')
-      .where(
-        new Brackets((qb) => {
-          qb.where("instructor.joinStatus = 'pending'").orWhere(
-            "member.joinStatus = 'pending'",
-          );
-        }),
-      )
-      // .andWhere(
-      //   new Brackets((qb) => {
-      //     qb.where('instructor.user.studioId = :studioId').orWhere(
-      //       'member.user.studioId = :studioId',
-      //     );
-      //   }),
-      // )
-      .andWhere('user.studioId = :studioId', { studioId: user.studio.id })
       .orderBy('user.createdAt', 'DESC')
       .skip((page - 1) * limit)
       .take(limit)
       .getManyAndCount();
 
-    const formattedUsers = pendingUsers.map((user) => ({
+    const formattedUsers = this.formatUsers(pendingUsers);
+
+    return this.paginateResponse(formattedUsers, total, page, limit);
+  }
+
+  private formatUsers(users: User[]) {
+    return users.map((user) => ({
       id: user.id,
       name: user.name,
-      role: user.role,
-      instructor: user.instructor
-        ? {
-            id: user.instructor.id,
-            isJoined: user.instructor.joinStatus,
-            // 필요한 기타 instructor 정보
-          }
-        : null,
-      member: user.member
-        ? {
-            id: user.member.id,
-            isJoined: user.member.joinStatus,
-            // 필요한 기타 member 정보
-          }
-        : null,
+      createdAt: user.createdAt,
+      profileImage: user.profile?.profile_image || null,
     }));
+  }
 
+  private paginateResponse(
+    data: any[],
+    total: number,
+    page: number,
+    limit: number,
+  ) {
     return {
-      data: formattedUsers,
+      data,
       meta: {
         total,
         page,
@@ -369,16 +496,9 @@ export class UserService {
     }
 
     // Todo: manager로 변환하기
-    if (user.role !== UserRole.INSTRUCTOR) {
-      throw new BadRequestException(
-        'Invalid user role for changing instructor',
-      );
+    if (user.role !== UserRole.MANAGER) {
+      throw new NotFoundException('Invalid user role');
     }
-
-    const old_instructor = await this.instructorRepository.findOne({
-      where: { members: { id: memberId } },
-      relations: ['members'],
-    });
 
     const instructor = await this.instructorRepository.findOne({
       where: { id: instructorId },
@@ -420,11 +540,25 @@ export class UserService {
   }
 
   // 유저 가입 요청 승인
-  async approveJoinRequest(accessToken: string, isApprove: JoinStatus) {
-    const { userId } = this.authService.decodeTokenUserId(accessToken);
+  async approveJoinRequest(
+    userId: string,
+    isApprove: JoinStatus,
+    accessToken: string,
+  ) {
+    const { userId: adminId } = this.authService.decodeTokenUserId(accessToken);
 
+    // 승인/거절 제어 할 매니저/강사 찾기
+    const admin = await this.userRepository.findOne({
+      where: { kakaoMemberId: +adminId },
+    });
+
+    if (admin.role !== UserRole.MANAGER) {
+      throw new NotFoundException('Invalid user role');
+    }
+
+    // 승인/거절 대상의 user 찾기
     const user = await this.userRepository.findOne({
-      where: { kakaoMemberId: +userId },
+      where: { id: userId },
     });
 
     if (!user) {
@@ -433,9 +567,9 @@ export class UserService {
 
     // 가입 거절
     if (isApprove === JoinStatus.REJECTED) {
-      if (user.role === UserRole.INSTRUCTOR) {
+      if (admin.role === UserRole.MANAGER) {
         await this.instructorRepository.delete({ user });
-      } else if (user.role === UserRole.MEMBER) {
+      } else if (admin.role === UserRole.INSTRUCTOR) {
         await this.memberRepository.delete({ user });
       } else {
         throw new BadRequestException('Invalid user role for approval');

@@ -9,6 +9,9 @@ import { ProfileModule } from './profile/profile.module';
 import { AwsModule } from './aws/aws.module';
 import { UtilsModule } from './utils/utils.module';
 import { ContentModule } from './content/content.module';
+import { MulterModule } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { extname } from 'path';
 
 @Module({
   imports: [
@@ -25,6 +28,28 @@ import { ContentModule } from './content/content.module';
       database: process.env.DATABASE_NAME,
       entities: [__dirname + '/**/*.entity{.ts,.js}'],
       synchronize: true,
+    }),
+    MulterModule.register({
+      storage: diskStorage({
+        destination: './uploads', // 파일 저장 위치
+        filename: (req, file, callback) => {
+          const uniqueSuffix =
+            Date.now() + '-' + Math.round(Math.random() * 1e9);
+          const ext = extname(file.originalname);
+          callback(null, `${file.fieldname}-${uniqueSuffix}${ext}`);
+        },
+      }),
+      limits: {
+        fileSize: 5 * 1024 * 1024, // 파일 크기 제한: 5MB
+      },
+      fileFilter: (req, file, callback) => {
+        // 파일 타입 필터링
+        if (file.mimetype.match(/\/(jpg|jpeg|png|gif)$/)) {
+          callback(null, true);
+        } else {
+          callback(new Error('지원되지 않는 파일 형식입니다.'), false);
+        }
+      },
     }),
 
     AuthModule,

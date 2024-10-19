@@ -9,7 +9,6 @@ import {
   Query,
   Req,
   Res,
-  UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
 import { Request } from 'express';
@@ -42,6 +41,30 @@ export class AuthController {
   @Get('/user/login/kakao')
   @UseGuards(AuthGuard('kakao'))
   async kakaoAuth(@Req() _req: Request) {}
+
+  @Post('auto-login')
+  @ApiOperation({
+    description: '자동로그인 처리 토큰 확인',
+  })
+  @ApiBody({
+    description: 'accessToken',
+    schema: {
+      type: 'object',
+      properties: {
+        // accessToken: {
+        //   type: 'string',
+        // },
+        refreshToken: {
+          type: 'string',
+        },
+      },
+    },
+    type: String,
+  })
+  async autoLogin(@Body('refreshToken') refreshToken: string) {
+    const { isExpired, user } = await this.authService.autoLogin(refreshToken);
+    return { isExpired, user };
+  }
 
   @ApiOperation({
     description: '카톡 소셜 로그인 인증 + 유저 가입처리',

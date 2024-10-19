@@ -1,4 +1,3 @@
-// Instructor 엔티티
 import {
   Column,
   Entity,

@@ -22,6 +22,7 @@ import { CreateMemberDto } from './dto/createMember.dto';
 import { GetAccessToken } from '../decorators/get-access-token.decorator';
 import { JoinStatus } from './constant/join-status.enum';
 import { PendingUserDto } from './dto/user-dto';
+import { UserRole } from './types/userRole';
 
 @Controller('users')
 export class UserController {
@@ -89,12 +90,14 @@ export class UserController {
   }
 
   @Get('instructor/members')
-  @ApiOperation({ summary: '강사 소속 회원 목록 조회' })
+  @ApiOperation({ summary: '스튜디오 회원 목록 조회' })
+  @ApiQuery({ name: 'instructorId', required: false, type: String })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @UseGuards(JwtAuthGuard)
   // 강사 하위 회원 목록
   getUsers(
+    @Query('instructorId') instructorId: string,
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 5,
     @GetAccessToken() accessToken: string,
@@ -102,7 +105,8 @@ export class UserController {
     const parsedPage = parseInt(page as any, 10);
     const parsedLimit = parseInt(limit as any, 10);
 
-    return this.userService.getMembersFromInstructor(
+    return this.userService.getMembers(
+      instructorId,
       isNaN(parsedPage) ? 1 : parsedPage,
       isNaN(parsedLimit) ? 5 : parsedLimit,
       accessToken,
@@ -110,7 +114,7 @@ export class UserController {
   }
 
   @Get('instructors')
-  @ApiOperation({ summary: '전체 강사 목록 조회' })
+  @ApiOperation({ summary: '스튜디오 내 강사 목록 조회' })
   @ApiResponse({
     status: 200,
     description: '강사 목록을 반환함',
@@ -138,7 +142,7 @@ export class UserController {
     const parsedPage = parseInt(page as any, 10);
     const parsedLimit = parseInt(limit as any, 10);
 
-    return this.userService.getInstructors(
+    return this.userService.getInstructorsOnStudio(
       isNaN(parsedPage) ? 1 : parsedPage,
       isNaN(parsedLimit) ? 10 : parsedLimit,
       accessToken,
@@ -165,24 +169,25 @@ export class UserController {
   @Get('join-requests')
   @UseGuards(JwtAuthGuard)
   async getJoinRequests(
+    @Query('type') type: UserRole,
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 10,
     @GetAccessToken() accessToken: string,
   ) {
-    return this.userService.getJoinRequests(page, limit, accessToken);
+    return this.userService.getJoinRequests(type, page, limit, accessToken);
   }
 
   @Post('approve-join-request')
-  @ApiOperation({ summary: '가입 요청 승인' })
+  @ApiOperation({ summary: '가입 요청 승인/거절' })
   @ApiResponse({ status: 200, description: '성공' })
   @ApiResponse({ status: 404, description: '사용자를 찾을 수 없음' })
   @UseGuards(JwtAuthGuard)
   async approveJoinRequest(
-    @Query('userId') userId: number,
-    @GetAccessToken() accessToken: string,
+    @Body('userId') userId: string,
     @Body('isApprove') isApprove: JoinStatus,
+    @GetAccessToken() accessToken: string,
   ) {
-    return this.userService.approveJoinRequest(accessToken, isApprove);
+    return this.userService.approveJoinRequest(userId, isApprove, accessToken);
   }
 
   // 유저 내보내기

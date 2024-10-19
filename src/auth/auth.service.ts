@@ -1,8 +1,4 @@
-import {
-  Injectable,
-  NotFoundException,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { User } from 'src/user/entites/user.entity';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -28,6 +24,12 @@ export class AuthService {
 
     private dataSource: DataSource,
   ) {}
+
+  async autoLogin(refreshToken: string) {
+    const { isExpired, user } = await this.verifyRefreshToken(refreshToken);
+
+    return { isExpired, user };
+  }
 
   async validateUser(payload: {
     kakaoMemberId: number;
@@ -76,12 +78,12 @@ export class AuthService {
     }
 
     // 유저 있을때 리프레시토큰 유효성 검사
-    const { isNearExpiration } = await this.verifyRefreshToken(
+    const { isExpired } = await this.verifyRefreshToken(
       findUser.auth.refreshToken,
     );
 
     // 유저있고 리프레시토큰 만료시 토큰 재발급
-    if (isNearExpiration) {
+    if (isExpired) {
       const newAccessToken = await this.generateAccessToken(
         kakaoMemberId,
         email,
@@ -136,9 +138,9 @@ export class AuthService {
       throw new Error('Invalid user info');
     }
 
-    const { isNearExpiration } = await this.verifyRefreshToken(refreshToken);
+    const { isExpired } = await this.verifyRefreshToken(refreshToken);
 
-    if (isNearExpiration) {
+    if (isExpired) {
       // throw new UnauthorizedException({
       //   errorCode: 'EXPIRED_TOKEN',
       //   message: 'expired token',
@@ -290,9 +292,13 @@ export class AuthService {
 
   private async verifyRefreshToken(
     refreshToken: string,
-  ): Promise<{ isNearExpiration: boolean }> {
+  ): Promise<{ isExpired: boolean; user: User }> {
     // const payload = await this.jwtService.verify(refreshToken);
     const payload = this.jwtService.decode(refreshToken);
+
+    if (!payload) {
+      throw new NotFoundException('Invalid token');
+    }
     const auth = await this.authRepository.findOne({
       where: { user: { kakaoMemberId: +payload.sub } },
       relations: ['user'],
@@ -306,9 +312,11 @@ export class AuthService {
     const expirationDate = new Date(payload.exp * 1000);
     const now = new Date();
     const sevenDays = 7 * 24 * 60 * 60 * 1000; // 7일을 밀리초로 표현
+    const isExpired = expirationDate.getTime() <= now.getTime();
+
     const isNearExpiration =
       expirationDate.getTime() - now.getTime() < sevenDays;
 
-    return { isNearExpiration };
+    return { isExpired, user: auth.user };
   }
 }

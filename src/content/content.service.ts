@@ -1,7 +1,7 @@
 import {
+  BadRequestException,
   Injectable,
   NotFoundException,
-  UnauthorizedException,
 } from '@nestjs/common';
 import { Content } from './entites/content.entity';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -11,6 +11,7 @@ import { AuthService } from '../auth/auth.service';
 import { User } from '../user/entites/user.entity';
 import { AwsService } from '../aws/aws.service';
 import { UtilsService } from '../utils/utils.service';
+import { UserRole } from '../user/types/userRole';
 
 @Injectable()
 export class ContentService {
@@ -24,32 +25,67 @@ export class ContentService {
     private readonly utilsService: UtilsService,
   ) {}
 
-  async getContents(page: number, limit: number) {
+  async getContents(page: number, limit: number, accessToken: string) {
+    const { userId } = this.authService.decodeTokenUserId(accessToken);
+
+    const user = await this.userRepository.findOne({
+      where: { kakaoMemberId: +userId },
+      relations: ['instructor', 'manager'],
+    });
+
+    if (!user) {
+      throw new NotFoundException('Instructor not found');
+    }
+
     const queryBuilder = this.contentRepository.createQueryBuilder('content');
 
-    queryBuilder.orderBy('content.createdAt', 'DESC');
+    if (user.role === UserRole.INSTRUCTOR) {
+      const [contents, total] = await queryBuilder
+        .innerJoin('content.instructor', 'instructor')
+        .where('instructor.id = :instructorId', {
+          instructorId: user.instructor.id,
+        })
+        .orderBy('content.createdAt', 'DESC')
+        .skip((page - 1) * limit)
+        .take(limit)
+        .getManyAndCount();
 
-    // 필터링 추가시
-    // if (level) {
-    //   queryBuilder.andWhere('content.level = :level', { level });
-    // }
+      const totalPages = Math.ceil(total / limit);
 
-    const [contents, total] = await queryBuilder
-      .skip((page - 1) * limit)
-      .take(limit)
-      .getManyAndCount();
+      return {
+        data: contents,
+        meta: {
+          total,
+          page,
+          limit,
+          totalPages,
+        },
+      };
+    }
 
-    const totalPages = Math.ceil(total / limit);
+    if (user.role === UserRole.MANAGER) {
+      const [contents, total] = await queryBuilder
+        .innerJoin('content.manager', 'manager')
+        .where('manager.id = :managerId', {
+          managerId: user.manager.id,
+        })
+        .orderBy('content.createdAt', 'DESC')
+        .skip((page - 1) * limit)
+        .take(limit)
+        .getManyAndCount();
 
-    return {
-      data: contents,
-      meta: {
-        total,
-        page,
-        limit,
-        totalPages,
-      },
-    };
+      const totalPages = Math.ceil(total / limit);
+
+      return {
+        data: contents,
+        meta: {
+          total,
+          page,
+          limit,
+          totalPages,
+        },
+      };
+    }
   }
 
   async createContent(
@@ -57,27 +93,41 @@ export class ContentService {
     accessToken: string,
     file: Express.Multer.File,
   ) {
+    if (!file) {
+      throw new BadRequestException('Image file is required');
+    }
+    if (
+      !createContentDto.title ||
+      !createContentDto.level ||
+      !createContentDto.description
+    ) {
+      throw new BadRequestException('Title, level, description are required');
+    }
     const { userId } = this.authService.decodeTokenUserId(accessToken);
 
     const user = await this.userRepository.findOne({
       where: { kakaoMemberId: +userId },
-      relations: ['instructor'],
+      relations: ['instructor', 'manager'],
     });
 
     if (!user) {
       throw new Error('User not found');
     }
 
-    if (user.role !== 'instructor') {
-      throw new Error('Only instructors can create content');
-    }
+    // if (user.role !== 'instructor') {
+    //   throw new Error('Only instructors can create content');
+    // }
 
     const imgSrc = await this.imageUpload(file);
 
     const updateContent = this.contentRepository.create({
-      ...createContentDto,
+      title: createContentDto.title,
+      level: createContentDto.level,
+      description: createContentDto.description,
       imageUrl: imgSrc.imageUrl,
-      instructor: user.instructor,
+      ...(user.role === UserRole.MANAGER
+        ? { manager: user.manager }
+        : { instructor: user.instructor }),
     });
 
     await this.contentRepository.save(updateContent);
@@ -91,17 +141,22 @@ export class ContentService {
     accessToken: string,
     file?: Express.Multer.File,
   ) {
-    const { userId } = this.authService.decodeTokenUserId(accessToken);
-    const user = await this.userRepository.findOne({
-      where: { kakaoMemberId: +userId },
-    });
-
-    if (!user || user.role !== 'instructor') {
-      throw new NotFoundException('Only instructors can update content');
+    if (!contentId || !updateContentDto) {
+      throw new NotFoundException(
+        'ContentId and updateContentDto are required',
+      );
     }
+    // const { userId } = this.authService.decodeTokenUserId(accessToken);
+    // const user = await this.userRepository.findOne({
+    //   where: { kakaoMemberId: +userId },
+    // });
+    //
+    // if (!user) {
+    //   throw new NotFoundException('Only instructors can update content');
+    // }
 
     const content = await this.contentRepository.findOne({
-      where: { id: contentId },
+      where: { id: +contentId },
     });
 
     if (!content) {
@@ -137,7 +192,7 @@ export class ContentService {
     }
 
     const content = await this.contentRepository.findOne({
-      where: { id: contentId },
+      where: { id: +contentId },
     });
 
     if (!content) {
