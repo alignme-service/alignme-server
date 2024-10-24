@@ -15,4 +15,24 @@ export class BaseCreateUserDto {
   })
   @IsString()
   name: string;
+
+  @ApiProperty({
+    description: '대표강사 가입 여부',
+    example: true,
+  })
+  isMainInstructor: boolean;
+
+  @ApiProperty({
+    description: '스튜디오 지역 이름',
+    example: true,
+  })
+  studioRegionName?: string;
+}
+
+export class MainInstructorCreateDto extends BaseCreateUserDto {
+  @ApiProperty({
+    description: '스튜디오 지역 이름',
+    example: true,
+  })
+  studioRegionName?: string;
 }

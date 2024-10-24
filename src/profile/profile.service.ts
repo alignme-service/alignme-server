@@ -41,7 +41,11 @@ export class ProfileService {
     };
   }
 
-  async saveImage(accessToken: string, file: Express.Multer.File) {
+  async updateProfile(
+    userName: string,
+    file: Express.Multer.File,
+    accessToken: string,
+  ) {
     const extractUserInfo = this.authService.decodeTokenUserId(accessToken);
     const userId = extractUserInfo.userId;
 
@@ -54,6 +58,15 @@ export class ProfileService {
 
     findUser.profile.profile_image = imgSrc.imageUrl;
     await this.profileRepository.save(findUser.profile);
+
+    const user = await this.userRepository.findOne({
+      where: { kakaoMemberId: +userId },
+    });
+
+    user.name = userName;
+    await this.userRepository.save(user);
+
+    return { message: 'Profile image successfully updated' };
   }
 
   private async imageUpload(file: Express.Multer.File) {

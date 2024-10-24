@@ -7,10 +7,11 @@ import { AuthModule } from '../auth/auth.module';
 import { ProfileController } from './profile.controller';
 import { ProfileService } from './profile.service';
 import { UtilsService } from '../utils/utils.service';
+import { Instructor } from '../user/entites/instructor.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, Profile]),
+    TypeOrmModule.forFeature([User, Profile, Instructor]),
     AwsModule,
     forwardRef(() => AuthModule),
   ],

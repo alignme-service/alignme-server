@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -25,67 +26,104 @@ export class ContentService {
     private readonly utilsService: UtilsService,
   ) {}
 
+  // async getContents(page: number, limit: number, accessToken: string) {
+  //   const { userId } = this.authService.decodeTokenUserId(accessToken);
+  //
+  //   const user = await this.userRepository.findOne({
+  //     where: { kakaoMemberId: +userId },
+  //     relations: ['instructor', 'member', 'member.instructor'],
+  //   });
+  //
+  //   if (!user) {
+  //     throw new NotFoundException('Instructor not found');
+  //   }
+  //
+  //   const queryBuilder = this.contentRepository.createQueryBuilder('content');
+  //
+  //   const [contents, total] = await queryBuilder
+  //     .innerJoin('content.instructor', 'instructor')
+  //     .where('instructor.id = :instructorId', {
+  //       instructorId: user.instructor.id,
+  //     })
+  //     .orderBy('content.createdAt', 'DESC')
+  //     .skip((page - 1) * limit)
+  //     .take(limit)
+  //     .getManyAndCount();
+  //
+  //   const totalPages = Math.ceil(total / limit);
+  //
+  //   return {
+  //     data: contents,
+  //     meta: {
+  //       total,
+  //       page,
+  //       limit,
+  //       totalPages,
+  //     },
+  //   };
+  // }
+
   async getContents(page: number, limit: number, accessToken: string) {
     const { userId } = this.authService.decodeTokenUserId(accessToken);
 
     const user = await this.userRepository.findOne({
       where: { kakaoMemberId: +userId },
-      relations: ['instructor', 'manager'],
+      relations: ['instructor'],
     });
 
     if (!user) {
-      throw new NotFoundException('Instructor not found');
+      throw new NotFoundException('User not found');
+    }
+
+    let instructorId;
+
+    if (user.role === UserRole.INSTRUCTOR) {
+      if (!user.instructor) {
+        throw new NotFoundException('Instructor not found');
+      }
+      instructorId = user.instructor.id;
+    } else if (user.role === UserRole.MEMBER) {
+      if (!user.member || !user.member.instructor) {
+        throw new NotFoundException(
+          'Member or associated instructor not found',
+        );
+      }
+      instructorId = user.member.instructor.id;
+    } else {
+      throw new ForbiddenException(
+        'User does not have permission to access contents',
+      );
     }
 
     const queryBuilder = this.contentRepository.createQueryBuilder('content');
 
-    if (user.role === UserRole.INSTRUCTOR) {
-      const [contents, total] = await queryBuilder
-        .innerJoin('content.instructor', 'instructor')
-        .where('instructor.id = :instructorId', {
-          instructorId: user.instructor.id,
-        })
-        .orderBy('content.createdAt', 'DESC')
-        .skip((page - 1) * limit)
-        .take(limit)
-        .getManyAndCount();
+    const [contents, total] = await queryBuilder
+      .innerJoin('content.instructor', 'instructor')
+      .where('instructor.id = :instructorId', { instructorId })
+      .orderBy('content.createdAt', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getManyAndCount();
 
-      const totalPages = Math.ceil(total / limit);
+    const totalPages = Math.ceil(total / limit);
 
-      return {
-        data: contents,
-        meta: {
-          total,
-          page,
-          limit,
-          totalPages,
-        },
-      };
-    }
+    const enrichedContents = contents.map((content) => ({
+      ...content,
+      instructor: {
+        instructorId: user.instructor.id,
+        instructorName: user.name,
+      },
+    }));
 
-    if (user.role === UserRole.MANAGER) {
-      const [contents, total] = await queryBuilder
-        .innerJoin('content.manager', 'manager')
-        .where('manager.id = :managerId', {
-          managerId: user.manager.id,
-        })
-        .orderBy('content.createdAt', 'DESC')
-        .skip((page - 1) * limit)
-        .take(limit)
-        .getManyAndCount();
-
-      const totalPages = Math.ceil(total / limit);
-
-      return {
-        data: contents,
-        meta: {
-          total,
-          page,
-          limit,
-          totalPages,
-        },
-      };
-    }
+    return {
+      data: enrichedContents,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages,
+      },
+    };
   }
 
   async createContent(
@@ -107,16 +145,12 @@ export class ContentService {
 
     const user = await this.userRepository.findOne({
       where: { kakaoMemberId: +userId },
-      relations: ['instructor', 'manager'],
+      relations: ['instructor'],
     });
 
     if (!user) {
       throw new Error('User not found');
     }
-
-    // if (user.role !== 'instructor') {
-    //   throw new Error('Only instructors can create content');
-    // }
 
     const imgSrc = await this.imageUpload(file);
 
@@ -125,9 +159,7 @@ export class ContentService {
       level: createContentDto.level,
       description: createContentDto.description,
       imageUrl: imgSrc.imageUrl,
-      ...(user.role === UserRole.MANAGER
-        ? { manager: user.manager }
-        : { instructor: user.instructor }),
+      instructor: user.instructor,
     });
 
     await this.contentRepository.save(updateContent);
@@ -138,7 +170,6 @@ export class ContentService {
   async updateContent(
     contentId: string,
     updateContentDto: Partial<CreateContentDto>,
-    accessToken: string,
     file?: Express.Multer.File,
   ) {
     if (!contentId || !updateContentDto) {
@@ -146,14 +177,6 @@ export class ContentService {
         'ContentId and updateContentDto are required',
       );
     }
-    // const { userId } = this.authService.decodeTokenUserId(accessToken);
-    // const user = await this.userRepository.findOne({
-    //   where: { kakaoMemberId: +userId },
-    // });
-    //
-    // if (!user) {
-    //   throw new NotFoundException('Only instructors can update content');
-    // }
 
     const content = await this.contentRepository.findOne({
       where: { id: +contentId },
@@ -172,6 +195,8 @@ export class ContentService {
       const imgSrc = await this.imageUpload(file);
       content.imageUrl = imgSrc.imageUrl;
     }
+
+    content.createdAt = new Date();
 
     // DTO의 필드들로 content 업데이트
     Object.assign(content, updateContentDto);

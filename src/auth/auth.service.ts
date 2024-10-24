@@ -1,12 +1,18 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { User } from 'src/user/entites/user.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Auth } from './entites/auth.entity';
 import { DataSource, Repository } from 'typeorm';
+import { UserRole } from '../user/types/userRole';
+import { UserService } from '../user/user.service';
 
 export type ReturnValidateUser = User & {
-  isAlerady: boolean;
+  isAlready: boolean;
   accessToken: string;
   refreshToken: string;
 };
@@ -22,13 +28,18 @@ export class AuthService {
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
 
+    private readonly userService: UserService,
+
     private dataSource: DataSource,
   ) {}
 
-  async autoLogin(refreshToken: string) {
-    const { isExpired, user } = await this.verifyRefreshToken(refreshToken);
+  async autoLogin(accessToken: string, refreshToken: string) {
+    const { isExpired, user, isMainInstructor } =
+      await this.verifyRefreshToken(refreshToken);
 
-    return { isExpired, user };
+    await this.userService.checkPendingUser(accessToken);
+
+    return { isExpired, user, isMainInstructor };
   }
 
   async validateUser(payload: {
@@ -39,13 +50,13 @@ export class AuthService {
   }): Promise<ReturnValidateUser | null> {
     const { kakaoMemberId, email, name } = payload;
 
-    let isAlerady = true;
+    let isAlready = true;
 
     const findUser: User = await this.findkakaoMemberId(kakaoMemberId);
 
     // 유저없을때 신규가입 처리 + 토큰 발급
     if (findUser === null) {
-      isAlerady = false;
+      isAlready = false;
 
       this.userRepository.create({
         kakaoMemberId,
@@ -70,7 +81,7 @@ export class AuthService {
       await this.setCurrentRefreshToken(kakaoMemberId, refreshToken);
 
       return {
-        isAlerady: isAlerady,
+        isAlready,
         accessToken,
         refreshToken,
         ...findUser,
@@ -94,7 +105,7 @@ export class AuthService {
       await this.setCurrentRefreshToken(kakaoMemberId, newRefreshToken);
 
       return {
-        isAlerady: isAlerady,
+        isAlready,
         accessToken: newAccessToken,
         refreshToken: newRefreshToken,
         ...findUser,
@@ -108,7 +119,7 @@ export class AuthService {
       name,
     );
     return {
-      isAlerady,
+      isAlready,
       accessToken,
       refreshToken: findUser.auth.refreshToken,
       ...findUser,
@@ -178,7 +189,7 @@ export class AuthService {
 
       return { userId, email, name };
     } catch {
-      throw new NotFoundException('failed decoded token');
+      throw new UnauthorizedException('failed decoded token');
     }
   }
 
@@ -199,7 +210,7 @@ export class AuthService {
     });
 
     if (!user) {
-      throw new NotFoundException(
+      throw new UnauthorizedException(
         `KakaoMemberId ${kakaoMemberId}를 가진 인증 정보를 찾을 수 없습니다.`,
       );
     }
@@ -212,7 +223,7 @@ export class AuthService {
     await this.authRepository.save(auth);
   }
 
-  async leaveUser(userId: string) {
+  async leaveUser(userId: number) {
     const queryRunner = this.dataSource.createQueryRunner();
 
     await queryRunner.connect();
@@ -220,7 +231,7 @@ export class AuthService {
 
     try {
       const user = await this.userRepository.findOne({
-        where: { kakaoMemberId: +userId },
+        where: { kakaoMemberId: userId },
         relations: ['profile', 'instructor', 'member'],
       });
 
@@ -282,7 +293,7 @@ export class AuthService {
     try {
       const findUser = await this.userRepository.findOne({
         where: { kakaoMemberId },
-        relations: ['auth'],
+        relations: ['auth', 'instructor'],
       });
       return findUser;
     } catch {
@@ -292,8 +303,7 @@ export class AuthService {
 
   private async verifyRefreshToken(
     refreshToken: string,
-  ): Promise<{ isExpired: boolean; user: User }> {
-    // const payload = await this.jwtService.verify(refreshToken);
+  ): Promise<{ isExpired: boolean; user: User; isMainInstructor: boolean }> {
     const payload = this.jwtService.decode(refreshToken);
 
     if (!payload) {
@@ -308,15 +318,34 @@ export class AuthService {
       throw new NotFoundException('Invalid user');
     }
 
+    let isMainInstructor = false;
+
+    // 메인 강사인지 체크
+
+    if (auth.user.role === UserRole.INSTRUCTOR) {
+      const user = await this.userRepository.findOne({
+        where: { kakaoMemberId: +payload.sub },
+        relations: ['instructor'],
+      });
+
+      if (!user) {
+        throw new NotFoundException('User not found');
+      }
+
+      if (user.instructor) {
+        isMainInstructor = user.instructor.isMainInstructor;
+      }
+    }
+
     // 토큰 만료 7일 전인지 확인
     const expirationDate = new Date(payload.exp * 1000);
     const now = new Date();
-    const sevenDays = 7 * 24 * 60 * 60 * 1000; // 7일을 밀리초로 표현
+    // const sevenDays = 7 * 24 * 60 * 60 * 1000; // 7일을 밀리초로 표현
     const isExpired = expirationDate.getTime() <= now.getTime();
 
-    const isNearExpiration =
-      expirationDate.getTime() - now.getTime() < sevenDays;
+    // const isNearExpiration =
+    //   expirationDate.getTime() - now.getTime() < sevenDays;
 
-    return { isExpired, user: auth.user };
+    return { isExpired, user: auth.user, isMainInstructor };
   }
 }

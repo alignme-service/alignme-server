@@ -18,16 +18,18 @@ import { GetAccessToken } from '../decorators/get-access-token.decorator';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ContentLevelEnum } from './constant/content.enum';
 import { JwtAuthGuard } from '../guard/JwtAuthGuard';
+import CheckPendingUserGuard from '../guard/checkPendingUser.guard';
 
 @Controller('content')
+@UseGuards(JwtAuthGuard)
+@UseGuards(CheckPendingUserGuard)
 export class ContentController {
   constructor(private readonly contentService: ContentService) {}
   @Get('contents')
-  @ApiOperation({ summary: '전체 콘텐츠 목록 조회' })
-  @ApiResponse({ status: 200, description: '강사 목록을 반환함' })
+  @ApiOperation({ summary: '내강사 콘텐츠 목록 조회' })
+  @ApiResponse({ status: 200, description: '내강사 콘텐츠 목록 조회' })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
-  @UseGuards(JwtAuthGuard)
   async getContents(
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 10,
@@ -56,7 +58,14 @@ export class ContentController {
       },
     },
   })
-  @UseGuards(JwtAuthGuard)
+  // @UseInterceptors(
+  //   FileInterceptor('image', {
+  //     fileFilter: imageFileFilter,
+  //     limits: {
+  //       fileSize: 1024 * 1024 * 5, // 5MB
+  //     },
+  //   }),
+  // )
   @UseInterceptors(FileInterceptor('file'))
   async createContent(
     @UploadedFile() file: Express.Multer.File,
@@ -73,26 +82,26 @@ export class ContentController {
   @Patch(':id')
   @ApiOperation({ summary: '콘텐츠 수정' })
   @ApiResponse({ status: 200, description: '성공' })
+  // @UseInterceptors(
+  //   FileInterceptor('image', {
+  //     fileFilter: imageFileFilter,
+  //     limits: {
+  //       fileSize: 1024 * 1024 * 5, // 5MB
+  //     },
+  //   }),
+  // )
   @UseInterceptors(FileInterceptor('file'))
-  @UseGuards(JwtAuthGuard)
   async updateContent(
     @Param('id') id: string,
     @Body() updateContentDto: Partial<CreateContentDto>,
-    @GetAccessToken() accessToken: string,
     @UploadedFile() file?: Express.Multer.File,
   ) {
-    return this.contentService.updateContent(
-      id,
-      updateContentDto,
-      accessToken,
-      file,
-    );
+    return this.contentService.updateContent(id, updateContentDto, file);
   }
 
   @Delete(':id')
   @ApiOperation({ summary: '콘텐츠 삭제' })
   @ApiResponse({ status: 200, description: '성공' })
-  @UseGuards(JwtAuthGuard)
   async deleteContent(
     @Param('id') id: string,
     @GetAccessToken() accessToken: string,

@@ -7,9 +7,15 @@ import { User } from '../user/entites/user.entity';
 import { UtilsService } from '../utils/utils.service';
 import { AwsModule } from '../aws/aws.module';
 import { AuthModule } from '../auth/auth.module';
+import { Instructor } from '../user/entites/instructor.entity';
+import { Member } from '../user/entites/member.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Content, User]), AwsModule, AuthModule],
+  imports: [
+    TypeOrmModule.forFeature([Content, User, Instructor, Member]),
+    AwsModule,
+    AuthModule,
+  ],
   controllers: [ContentController],
   providers: [ContentService, UtilsService],
 })

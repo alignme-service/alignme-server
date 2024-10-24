@@ -1,5 +1,13 @@
-import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
+import {
+  Column,
+  Entity,
+  JoinColumn,
+  OneToMany,
+  OneToOne,
+  PrimaryGeneratedColumn,
+} from 'typeorm';
 import { User } from '../../user/entites/user.entity';
+import { Instructor } from '../../user/entites/instructor.entity';
 
 @Entity()
 export class Studio {
@@ -14,4 +22,8 @@ export class Studio {
 
   @OneToMany(() => User, (user) => user.studio, { onDelete: 'CASCADE' })
   users: User[];
+
+  // @OneToOne(() => Instructor, (instructor) => instructor.studio)
+  // @JoinColumn()
+  // mainInstructor: Instructor;
 }

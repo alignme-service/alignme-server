@@ -7,16 +7,14 @@ import {
   NotFoundException,
   Post,
   Query,
-  Req,
   Res,
   UseGuards,
 } from '@nestjs/common';
-import { Request } from 'express';
-import { AuthService, ReturnValidateUser } from './auth.service';
+import axios from 'axios';
 import { AuthGuard } from '@nestjs/passport';
 import { ConfigService } from '@nestjs/config';
-import axios from 'axios';
 import { Response } from 'express';
+import { AuthService, ReturnValidateUser } from './auth.service';
 import { JwtAuthGuard } from 'src/guard/JwtAuthGuard';
 import { Public } from 'src/public.decorator';
 import { UtilsService } from '../utils/utils.service';
@@ -40,7 +38,7 @@ export class AuthController {
   @ApiExcludeEndpoint()
   @Get('/user/login/kakao')
   @UseGuards(AuthGuard('kakao'))
-  async kakaoAuth(@Req() _req: Request) {}
+  async kakaoAuth() {}
 
   @Post('auto-login')
   @ApiOperation({
@@ -51,9 +49,6 @@ export class AuthController {
     schema: {
       type: 'object',
       properties: {
-        // accessToken: {
-        //   type: 'string',
-        // },
         refreshToken: {
           type: 'string',
         },
@@ -61,9 +56,13 @@ export class AuthController {
     },
     type: String,
   })
-  async autoLogin(@Body('refreshToken') refreshToken: string) {
-    const { isExpired, user } = await this.authService.autoLogin(refreshToken);
-    return { isExpired, user };
+  async autoLogin(
+    @Body('refreshToken') refreshToken: string,
+    @GetAccessToken() accessToken: string,
+  ) {
+    const { isExpired, user, isMainInstructor } =
+      await this.authService.autoLogin(accessToken, refreshToken);
+    return { isExpired, user, isMainInstructor };
   }
 
   @ApiOperation({
@@ -75,7 +74,7 @@ export class AuthController {
   })
   @ApiResponse({
     status: 200,
-    description: 'isAleradyUser: false -> 신규유저',
+    description: 'isAlerady: false -> 신규유저',
     schema: {
       type: 'object',
       properties: {
@@ -83,7 +82,7 @@ export class AuthController {
         data: {
           type: 'object',
           properties: {
-            isAleradyUser: { type: 'boolean' },
+            isAlready: { type: 'boolean' },
             accessToken: { type: 'string' },
             refreshToken: { type: 'string' },
             kakaoMemberId: { type: 'string' },
@@ -134,7 +133,7 @@ export class AuthController {
       };
 
       // 기존 유저있는지 확인
-      const { isAlerady, accessToken, refreshToken }: ReturnValidateUser =
+      const { isAlready, accessToken, refreshToken }: ReturnValidateUser =
         await this.authService.validateUser(authPayload);
 
       res.setHeader('Authorization', 'Bearer ' + [accessToken, refreshToken]);
@@ -148,7 +147,7 @@ export class AuthController {
       res.status(200).json({
         message: 'Kakao login successful',
         data: {
-          isAlerady,
+          isAlready,
           accessToken,
           refreshToken,
           ...authPayload,
@@ -183,7 +182,6 @@ export class AuthController {
     @Body('refreshToken') refreshToken: string,
     @GetAccessToken() accessToken: string,
   ) {
-    // try {
     const tokens = await this.authService.refreshToken(
       refreshToken,
       accessToken,
@@ -192,10 +190,6 @@ export class AuthController {
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
     };
-    // }
-    // catch (error) {
-    //   throw new NotFoundException('Invalid refresh token');
-    // }
   }
 
   // @ApiOperation({

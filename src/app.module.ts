@@ -44,7 +44,7 @@ import { extname } from 'path';
       },
       fileFilter: (req, file, callback) => {
         // 파일 타입 필터링
-        if (file.mimetype.match(/\/(jpg|jpeg|png|gif)$/)) {
+        if (file.mimetype.match(/\/(jpg|jpeg|png)$/)) {
           callback(null, true);
         } else {
           callback(new Error('지원되지 않는 파일 형식입니다.'), false);

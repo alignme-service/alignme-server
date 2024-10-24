@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
@@ -15,7 +15,7 @@ import { UtilsService } from '../utils/utils.service';
 @Module({
   imports: [
     TypeOrmModule.forFeature([Auth, User]),
-    UserModule,
+    forwardRef(() => UserModule),
     PassportModule,
     ProfileModule,
     JwtModule.registerAsync({

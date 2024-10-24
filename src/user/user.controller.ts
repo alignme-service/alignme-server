@@ -16,15 +16,19 @@ import {
   ApiQuery,
   ApiResponse,
 } from '@nestjs/swagger';
-import { CreateManagerDto } from './dto/createManager.dto';
-import { BaseCreateUserDto } from './dto/baseCreateUser.dto';
+import {
+  BaseCreateUserDto,
+  MainInstructorCreateDto,
+} from './dto/baseCreateUser.dto';
 import { CreateMemberDto } from './dto/createMember.dto';
 import { GetAccessToken } from '../decorators/get-access-token.decorator';
 import { JoinStatus } from './constant/join-status.enum';
 import { PendingUserDto } from './dto/user-dto';
 import { UserRole } from './types/userRole';
+import { RolesGuard } from '../guard/role.guard';
 
 @Controller('users')
+@UseGuards(JwtAuthGuard)
 export class UserController {
   constructor(private readonly userService: UserService) {}
 
@@ -39,11 +43,6 @@ export class UserController {
     @Body() createMemberDto: CreateMemberDto,
     @GetAccessToken() accessToken: string,
   ) {
-    // const accessToken = request.cookies['accessToken'];
-
-    // const extractAccessToken = request.headers['authorization'];
-    // const accessToken = extractAccessToken.split(' ')[1];
-
     return this.userService.createMember(accessToken, createMemberDto);
   }
 
@@ -65,36 +64,18 @@ export class UserController {
   @UseGuards(JwtAuthGuard)
   @Post('/signup-instructor')
   createInstructor(
-    @Body() createInstructor: BaseCreateUserDto,
+    @Body() createInstructor: MainInstructorCreateDto,
     @GetAccessToken() accessToken: string,
   ) {
-    // const accessToken = request.cookies['accessToken'];
-    // const extractAccessToken = request.headers['authorization'];
-    // const accessToken = extractAccessToken.split(' ')[1];
-
     return this.userService.createInstructor(accessToken, createInstructor);
   }
 
-  @ApiOperation({
-    summary: '매니저 회원가입',
-    description: '매니저 회원가입',
-  })
-  @ApiBody({ type: CreateManagerDto })
-  @UseGuards(JwtAuthGuard)
-  @Post('/signup-manager')
-  createManager(
-    @Body() cereateManager: CreateManagerDto,
-    @GetAccessToken() accessToken: string,
-  ) {
-    return this.userService.createManager(accessToken, cereateManager);
-  }
-
   @Get('instructor/members')
+  @UseGuards(RolesGuard)
   @ApiOperation({ summary: '스튜디오 회원 목록 조회' })
   @ApiQuery({ name: 'instructorId', required: false, type: String })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
-  @UseGuards(JwtAuthGuard)
   // 강사 하위 회원 목록
   getUsers(
     @Query('instructorId') instructorId: string,
@@ -114,6 +95,7 @@ export class UserController {
   }
 
   @Get('instructors')
+  @UseGuards(RolesGuard)
   @ApiOperation({ summary: '스튜디오 내 강사 목록 조회' })
   @ApiResponse({
     status: 200,
@@ -133,7 +115,6 @@ export class UserController {
   })
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
-  @UseGuards(JwtAuthGuard)
   async getInstructors(
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 10,
@@ -150,6 +131,7 @@ export class UserController {
   }
 
   @Get('join-requests')
+  @UseGuards(RolesGuard)
   @ApiOperation({ summary: '가입 대기 중인 사용자 목록 조회' })
   @ApiQuery({
     name: 'page',
@@ -167,7 +149,6 @@ export class UserController {
     type: PendingUserDto,
   })
   @Get('join-requests')
-  @UseGuards(JwtAuthGuard)
   async getJoinRequests(
     @Query('type') type: UserRole,
     @Query('page') page: number = 1,
@@ -178,30 +159,30 @@ export class UserController {
   }
 
   @Post('approve-join-request')
+  @UseGuards(RolesGuard)
   @ApiOperation({ summary: '가입 요청 승인/거절' })
   @ApiResponse({ status: 200, description: '성공' })
   @ApiResponse({ status: 404, description: '사용자를 찾을 수 없음' })
-  @UseGuards(JwtAuthGuard)
   async approveJoinRequest(
-    @Body('userId') userId: string,
+    @Body('userId') selectUserId: string,
     @Body('isApprove') isApprove: JoinStatus,
-    @GetAccessToken() accessToken: string,
   ) {
-    return this.userService.approveJoinRequest(userId, isApprove, accessToken);
+    return this.userService.approveJoinRequest(selectUserId, isApprove);
   }
 
   // 유저 내보내기
   @Delete('leave-user')
+  @UseGuards(RolesGuard)
   @ApiOperation({ summary: '유저 내보내기' })
   @ApiResponse({ status: 200, description: '성공' })
   @ApiResponse({ status: 404, description: '사용자를 찾을 수 없음' })
-  @UseGuards(JwtAuthGuard)
   async leaveUser(@Query('userId') userId: string) {
     return this.userService.leaveUser(userId);
   }
 
   // 소속강사 변경하기
   @Post('change-instructor')
+  @UseGuards(RolesGuard)
   @ApiOperation({ summary: '소속강사 변경하기' })
   @ApiResponse({ status: 200, description: '성공' })
   @ApiResponse({ status: 404, description: '사용자를 찾을 수 없음' })
@@ -218,7 +199,6 @@ export class UserController {
       },
     },
   })
-  @UseGuards(JwtAuthGuard)
   async changeInstructor(
     @GetAccessToken() accessToken: string,
     @Body('instructorId') instructorId: string,
@@ -230,4 +210,7 @@ export class UserController {
       memberId,
     );
   }
+
+  // 가입대기중인 상태
+  async joinPendingProcess(@GetAccessToken() accessToken: string) {}
 }

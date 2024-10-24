@@ -13,46 +13,7 @@ import {
 import { UserRole } from '../types/userRole';
 import { Studio } from '../../studio/entites/studio.entity';
 import { Member } from './member.entity';
-import { Manager } from './manager.entity';
 import { Instructor } from './instructor.entity';
-
-// @Entity()
-// export class User {
-//   @PrimaryGeneratedColumn('uuid')
-//   id: string;
-//
-//   @Column('bigint', { unique: true })
-//   kakaoMemberId: number;
-//
-//   @Column({ unique: true, nullable: true })
-//   email: string;
-//
-//   @Column({ nullable: true })
-//   nickname: string;
-//
-//   @CreateDateColumn({ nullable: true })
-//   createdAt: Date;
-//
-//   @UpdateDateColumn({ nullable: true })
-//   updatedAt: Date;
-//
-//   @Column({
-//     type: 'enum',
-//     enum: Object.values(UserRole),
-//     default: UserRole.MEMEBER,
-//   })
-//   role: UserRole;
-//
-//   @OneToOne(() => Auth, (auth) => auth.user)
-//   auth: Auth;
-//
-//   @OneToOne(() => Profile, (profile) => profile.user)
-//   profile: Profile;
-//
-//   @ManyToOne(() => Studio, (studio) => studio.users)
-//   @JoinColumn()
-//   studio: Studio;
-// }
 
 @Entity()
 export class User {
@@ -90,9 +51,6 @@ export class User {
   @ManyToOne(() => Studio, (studio) => studio.users, { cascade: true })
   @JoinColumn()
   studio: Studio;
-
-  @OneToOne(() => Manager, (manager) => manager.user, { cascade: true })
-  manager: Manager;
 
   @OneToOne(() => Instructor, (instructor) => instructor.user, {
     cascade: true,
