@@ -33,7 +33,10 @@ export class Instructor {
   @ApiProperty({
     type: User,
   })
-  @OneToOne(() => User, (user) => user.instructor, { onDelete: 'CASCADE' })
+  @OneToOne(() => User, (user) => user.instructor, {
+    onDelete: 'CASCADE',
+    nullable: false,
+  })
   @JoinColumn()
   user: User;
 

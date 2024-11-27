@@ -10,8 +10,9 @@ import { Auth } from './entites/auth.entity';
 import { DataSource, Repository } from 'typeorm';
 import { UserRole } from '../user/types/userRole';
 import { UserService } from '../user/user.service';
+import ErrorCodes from '../constants/ErrorCodes';
 
-export type ReturnValidateUser = User & {
+export type ReturnValidateUser = {
   isAlready: boolean;
   accessToken: string;
   refreshToken: string;
@@ -33,26 +34,30 @@ export class AuthService {
     private dataSource: DataSource,
   ) {}
 
-  async autoLogin(accessToken: string, refreshToken: string) {
-    const { isExpired, user, isMainInstructor } =
-      await this.verifyRefreshToken(refreshToken);
+  async autoLogin(refreshToken: string) {
+    const { isExpired } = await this.verifyToken(refreshToken);
 
-    await this.userService.checkPendingUser(accessToken);
+    if (isExpired) {
+      throw new UnauthorizedException(ErrorCodes.ERR_02);
+    }
 
-    return { isExpired, user, isMainInstructor };
+    await this.userService.checkPendingUser(refreshToken);
+
+    return {
+      isExpired,
+    };
   }
 
   async validateUser(payload: {
     kakaoMemberId: number;
     email: string;
     name: string;
-    // profile_image: string;
   }): Promise<ReturnValidateUser | null> {
     const { kakaoMemberId, email, name } = payload;
 
     let isAlready = true;
 
-    const findUser: User = await this.findkakaoMemberId(kakaoMemberId);
+    const findUser: User = await this.findUserByKakaoMemberId(kakaoMemberId);
 
     // 유저없을때 신규가입 처리 + 토큰 발급
     if (findUser === null) {
@@ -78,20 +83,18 @@ export class AuthService {
         name,
       );
       const refreshToken = await this.generateRefreshToken(kakaoMemberId);
-      await this.setCurrentRefreshToken(kakaoMemberId, refreshToken);
+      await this.setRefreshToken(refreshToken);
 
       return {
         isAlready,
         accessToken,
         refreshToken,
-        ...findUser,
+        // ...findUser,
       };
     }
 
     // 유저 있을때 리프레시토큰 유효성 검사
-    const { isExpired } = await this.verifyRefreshToken(
-      findUser.auth.refreshToken,
-    );
+    const { isExpired } = await this.verifyToken(findUser.auth.refreshToken);
 
     // 유저있고 리프레시토큰 만료시 토큰 재발급
     if (isExpired) {
@@ -102,13 +105,13 @@ export class AuthService {
       );
       const newRefreshToken = await this.generateRefreshToken(kakaoMemberId);
 
-      await this.setCurrentRefreshToken(kakaoMemberId, newRefreshToken);
+      await this.setRefreshToken(newRefreshToken);
 
       return {
         isAlready,
         accessToken: newAccessToken,
         refreshToken: newRefreshToken,
-        ...findUser,
+        // ...findUser,
       };
     }
 
@@ -122,7 +125,7 @@ export class AuthService {
       isAlready,
       accessToken,
       refreshToken: findUser.auth.refreshToken,
-      ...findUser,
+      // ...findUser,
     };
   }
 
@@ -133,87 +136,50 @@ export class AuthService {
   ): Promise<string> {
     const payload = { userId, email, name };
 
-    return this.jwtService.sign(payload);
+    return this.jwtService.sign(payload, { expiresIn: '2 days' });
   }
 
   async generateRefreshToken(userId: number): Promise<string> {
     const payload = { sub: userId };
-    return this.jwtService.sign(payload, { expiresIn: '7d' });
+    return this.jwtService.sign(payload, { expiresIn: '7 days' });
   }
 
-  async refreshToken(refreshToken: string, accessToken: string) {
-    const userInfo = this.decodeTokenUserId(accessToken);
-    const authTokenInfo = await this.findById(userInfo.userId);
+  async refreshToken(refreshToken: string) {
+    // const { userId, email, name } = this.decodeAccessToken(accessToken);
 
-    if (!authTokenInfo) {
-      throw new Error('Invalid user info');
-    }
-
-    const { isExpired } = await this.verifyRefreshToken(refreshToken);
+    const {
+      kakaoMemberId: userId,
+      email,
+      name,
+    } = await this.findUserByRefreshToken(refreshToken);
+    const { isExpired } = await this.verifyToken(refreshToken);
 
     if (isExpired) {
-      // throw new UnauthorizedException({
-      //   errorCode: 'EXPIRED_TOKEN',
-      //   message: 'expired token',
-      // });
-
-      const newAccessToken = this.jwtService.sign({
-        userId: userInfo.userId,
-        email: userInfo.email,
-        name: userInfo.name,
-      });
-      const newRefreshToken = this.jwtService.sign(
-        { userId: userInfo.userId, email: userInfo.email, name: userInfo.name },
-        { expiresIn: '7d' },
+      const newAccessToken = await this.generateAccessToken(
+        userId,
+        email,
+        name,
       );
+      const newRefreshToken = await this.generateRefreshToken(userId);
 
-      await this.updateRefreshToken(authTokenInfo.id, newRefreshToken);
+      await this.updateRefreshToken(userId, newRefreshToken);
 
       return {
         accessToken: newAccessToken,
         refreshToken: newRefreshToken,
       };
     }
+    const newAccessToken = await this.generateAccessToken(userId, email, name);
+    return {
+      accessToken: newAccessToken,
+      refreshToken,
+    };
   }
 
-  decodeTokenUserId(token: string): {
-    userId: string;
-    email: string;
-    name: string;
-  } {
-    try {
-      // const decoded = this.jwtService.verify(token);
-      const decoded = this.jwtService.decode(token);
+  async setRefreshToken(refreshToken: string): Promise<void> {
+    const user = await this.findUserByRefreshToken(refreshToken);
 
-      const { userId, email, name } = decoded;
-
-      return { userId, email, name };
-    } catch {
-      throw new UnauthorizedException('failed decoded token');
-    }
-  }
-
-  async setCurrentRefreshToken(
-    kakaoMemberId: number,
-    refreshToken: string,
-  ): Promise<void> {
-    const user = await this.userRepository.findOne({
-      where: { kakaoMemberId },
-    });
-
-    let auth = await this.authRepository.findOne({
-      where: {
-        user: {
-          id: user.id,
-        },
-      },
-    });
-
-    if (!user) {
-      throw new UnauthorizedException(
-        `KakaoMemberId ${kakaoMemberId}를 가진 인증 정보를 찾을 수 없습니다.`,
-      );
-    }
+    let auth: Auth;
 
     if (!auth) {
       auth = this.authRepository.create({ user });
@@ -236,7 +202,7 @@ export class AuthService {
       });
 
       if (!user) {
-        throw new NotFoundException('User not found');
+        throw new NotFoundException(ErrorCodes.ERR_11);
       }
 
       await queryRunner.manager.remove(user);
@@ -250,102 +216,89 @@ export class AuthService {
     }
   }
 
-  private async findById(id: string): Promise<User | undefined> {
+  async findUserByKakaoMemberId(kakaoMemberId: number): Promise<User> {
     try {
       return await this.userRepository.findOne({
-        where: { kakaoMemberId: +id },
+        where: { kakaoMemberId },
+        relations: ['auth'],
       });
-    } catch (error) {
-      console.error('Error finding user by ID:', error);
-      throw new Error('Failed to find user');
+    } catch {
+      throw new NotFoundException(ErrorCodes.ERR_11);
+    }
+  }
+
+  decodeAccessToken(token: string): {
+    userId: string;
+    email: string;
+    name: string;
+  } {
+    try {
+      const decoded = this.jwtService.decode(token);
+
+      const { userId, email, name } = decoded;
+
+      return { userId, email, name };
+    } catch {
+      throw new UnauthorizedException(ErrorCodes.ERR_01);
+    }
+  }
+
+  async findUserByRefreshToken(refreshToken: string): Promise<User> {
+    try {
+      const payload = this.jwtService.decode(refreshToken);
+
+      const user = await this.userRepository.findOne({
+        where: { kakaoMemberId: +payload.sub },
+        relations: ['instructor', 'member', 'studio', 'profile'],
+      });
+
+      return user;
+    } catch {
+      throw new UnauthorizedException(ErrorCodes.ERR_01);
     }
   }
 
   private async updateRefreshToken(
-    authId: string,
+    userId: number,
     refreshToken: string,
   ): Promise<void> {
     try {
-      await this.authRepository.update(authId, { refreshToken });
-    } catch (error) {
-      console.error('Error updating refresh token:', error);
-      throw new Error('Failed to update refresh token');
-    }
-  }
-
-  // Todo: 회원 탈퇴로 변경
-  // private async removeAccessToken(kakaoMemberId: number): Promise<void> {
-  //   try {
-  //     const user = await this.userRepository.findOne({
-  //       where: { kakaoMemberId },
-  //     });
-  //     if (!user) {
-  //       throw new Error('User not found');
-  //     }
-  //     await this.authRepository.delete({ user: { id: user.id } });
-  //   } catch (error) {
-  //     console.error('Error removing refresh token:', error);
-  //     throw new Error('Failed to remove refresh token');
-  //   }
-  // }
-
-  private async findkakaoMemberId(kakaoMemberId: number): Promise<User | null> {
-    try {
-      const findUser = await this.userRepository.findOne({
-        where: { kakaoMemberId },
-        relations: ['auth', 'instructor'],
-      });
-      return findUser;
-    } catch {
-      return null;
-    }
-  }
-
-  private async verifyRefreshToken(
-    refreshToken: string,
-  ): Promise<{ isExpired: boolean; user: User; isMainInstructor: boolean }> {
-    const payload = this.jwtService.decode(refreshToken);
-
-    if (!payload) {
-      throw new NotFoundException('Invalid token');
-    }
-    const auth = await this.authRepository.findOne({
-      where: { user: { kakaoMemberId: +payload.sub } },
-      relations: ['user'],
-    });
-
-    if (!auth) {
-      throw new NotFoundException('Invalid user');
-    }
-
-    let isMainInstructor = false;
-
-    // 메인 강사인지 체크
-
-    if (auth.user.role === UserRole.INSTRUCTOR) {
       const user = await this.userRepository.findOne({
-        where: { kakaoMemberId: +payload.sub },
-        relations: ['instructor'],
+        where: { kakaoMemberId: userId },
+        relations: ['auth'],
       });
 
-      if (!user) {
-        throw new NotFoundException('User not found');
-      }
+      await this.authRepository.update(user.auth.id, { refreshToken });
+    } catch {
+      throw new UnauthorizedException(ErrorCodes.ERR_03);
+    }
+  }
 
-      if (user.instructor) {
-        isMainInstructor = user.instructor.isMainInstructor;
-      }
+  private async isMainInstructor(user: User): Promise<boolean> {
+    // 강사 일때만 사용 가능
+    if (user.role !== UserRole.INSTRUCTOR) {
+      throw new UnauthorizedException(ErrorCodes.ERR_12);
     }
 
-    // 토큰 만료 7일 전인지 확인
-    const expirationDate = new Date(payload.exp * 1000);
-    const now = new Date();
-    // const sevenDays = 7 * 24 * 60 * 60 * 1000; // 7일을 밀리초로 표현
-    const isExpired = expirationDate.getTime() <= now.getTime();
+    if (user.instructor.isMainInstructor) {
+      return true;
+    }
+    return false;
+  }
 
-    // const isNearExpiration =
-    //   expirationDate.getTime() - now.getTime() < sevenDays;
+  private async verifyToken(token: string): Promise<{
+    isExpired: boolean;
+  }> {
+    try {
+      const payload = this.jwtService.decode(token);
 
-    return { isExpired, user: auth.user, isMainInstructor };
+      const expirationDate = new Date(payload.exp * 1000);
+      const now = new Date();
+      const isExpired = expirationDate.getTime() <= now.getTime();
+
+      return { isExpired };
+    } catch {
+      throw new UnauthorizedException(ErrorCodes.ERR_01);
+    }
   }
 }

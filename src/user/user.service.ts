@@ -1,11 +1,11 @@
 import {
   BadRequestException,
-  ConflictException,
   ForbiddenException,
   forwardRef,
   Inject,
   Injectable,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
@@ -15,10 +15,10 @@ import { User } from './entites/user.entity';
 import { UserRole } from './types/userRole';
 import { Studio } from '../studio/entites/studio.entity';
 import { BaseCreateUserDto } from './dto/baseCreateUser.dto';
-import { CreateMemberDto } from './dto/createMember.dto';
 import { Profile } from '../profile/entities/profile.entity';
 import { Member } from './entites/member.entity';
 import { JoinStatus } from './constant/join-status.enum';
+import ErrorCodes from '../constants/ErrorCodes';
 
 @Injectable()
 export class UserService {
@@ -38,52 +38,137 @@ export class UserService {
     private dataSource: DataSource,
   ) {}
 
-  async createMember(accessToken: string, createMemberDto: CreateMemberDto) {
-    if (!createMemberDto.studioName) {
-      throw new NotFoundException('invalid Studio name');
-    }
+  async getUserInfo(accessToken: string) {
+    const { userId } = this.authService.decodeAccessToken(accessToken);
 
-    const member = await this.createStudioAndProfile(accessToken);
-
-    if (createMemberDto.name) {
-      member.name = createMemberDto.name;
-    }
-
-    member.role = UserRole.MEMBER;
-
-    // 강사 찾은후 해당 강사로 편입
-    const findInstructor = await this.instructorRepository.findOne({
-      where: { id: createMemberDto.instructorId },
+    const user = await this.userRepository.findOne({
+      where: { kakaoMemberId: +userId },
+      relations: ['profile', 'studio', 'instructor', 'member'],
     });
 
-    if (!findInstructor) {
-      throw new NotFoundException('Instructor not found');
+    if (!user) {
+      throw new NotFoundException(ErrorCodes.ERR_11);
     }
 
-    const studio = await this.studioRepository.findOne({
-      where: { studioName: createMemberDto.studioName },
-    });
+    const { id, email, name, role, kakaoMemberId } = user;
 
-    if (studio) {
-      member.studio = studio;
-    } else {
-      throw new NotFoundException('Not Found Studio');
+    let isMainInstructor = false;
+    if (role === UserRole.INSTRUCTOR) {
+      isMainInstructor = user.instructor.isMainInstructor;
     }
 
-    await this.userRepository.save(member);
+    return {
+      id,
+      kakaoMemberId,
+      email,
+      name,
+      role,
+      isMainInstructor,
+    };
+  }
 
-    const createdMember = this.memberRepository.create({
-      user: member,
-      instructor: findInstructor,
+  // async createMember(accessToken: string, createMemberDto: CreateMemberDto) {
+  //   if (!createMemberDto.studioName) {
+  //     throw new NotFoundException(ErrorCodes.ERR_41);
+  //   }
+  //
+  //   const { userId } = this.authService.decodeAccessToken(accessToken);
+  //
+  //   // const member = await this.createStudioAndProfile(
+  //   //   accessToken,
+  //   //   UserRole.MEMBER,
+  //   // );
+  //   const member: any = {};
+  //
+  //   if (createMemberDto.name) {
+  //     member.name = createMemberDto.name;
+  //   }
+  //
+  //   member.role = UserRole.MEMBER;
+  //
+  //   // 강사 찾은후 해당 강사로 편입
+  //   const findInstructor = await this.instructorRepository.findOne({
+  //     where: { id: createMemberDto.instructorId },
+  //   });
+  //
+  //   if (!findInstructor) {
+  //     throw new NotFoundException('Instructor not found');
+  //   }
+  //
+  //   const studio = await this.studioRepository.findOne({
+  //     where: { studioName: createMemberDto.studioName },
+  //   });
+  //
+  //   if (studio) {
+  //     member.studio = studio;
+  //   } else {
+  //     throw new NotFoundException('Not Found Studio');
+  //   }
+  //
+  //   await this.userRepository.save(member);
+  //
+  //   const createdMember = this.memberRepository.create({
+  //     user: member,
+  //     instructor: findInstructor,
+  //   });
+  //
+  //   createdMember.joinStatus = JoinStatus.PENDING;
+  //
+  //   await this.memberRepository.save(createdMember);
+  //
+  //   await this.checkPendingUser(accessToken);
+  //
+  //   return createdMember;
+  // }
+  async createMember(
+    accessToken: string,
+    studioId: string,
+    instructorId: string,
+  ) {
+    const { userId } = this.authService.decodeAccessToken(accessToken);
+
+    const user = await this.userRepository.findOne({
+      where: { kakaoMemberId: +userId },
+      relations: ['studio', 'profile'],
     });
 
-    createdMember.joinStatus = JoinStatus.PENDING;
+    if (!user) {
+      throw new NotFoundException(ErrorCodes.ERR_11);
+    }
 
-    await this.memberRepository.save(createdMember);
+    user.studio = await this.studioRepository.findOne({
+      where: { id: studioId },
+    });
 
-    await this.checkPendingUser(accessToken);
+    user.role = UserRole.MEMBER;
 
-    return createdMember;
+    await this.userRepository.save(user);
+
+    user.profile = this.profileRepository.create({
+      user,
+      profile_image: '',
+      updatedAt: new Date(),
+    });
+    await this.profileRepository.save(user.profile);
+
+    const instructor = await this.instructorRepository.findOne({
+      where: { id: instructorId },
+      relations: ['user'],
+    });
+
+    if (!instructor) {
+      throw new NotFoundException(ErrorCodes.ERR_12);
+    }
+
+    const member = this.memberRepository.create({
+      user,
+      instructor,
+      joinStatus: JoinStatus.PENDING,
+    });
+
+    await this.memberRepository.save(member);
+
+    return member;
   }
 
   async createInstructor(
@@ -94,99 +179,76 @@ export class UserService {
       throw new NotFoundException('invalid Studio name');
     }
 
-    const instructor = await this.createStudioAndProfile(accessToken);
+    const { userId } = this.authService.decodeAccessToken(accessToken);
 
-    if (createInstructor.name) {
-      instructor.name = createInstructor.name;
-    }
-
-    instructor.role = UserRole.INSTRUCTOR;
-
-    const newInstructor = this.instructorRepository.create({
-      user: instructor,
-    });
-
-    newInstructor.joinStatus = JoinStatus.PENDING;
-
-    if (createInstructor.isMainInstructor) {
-      newInstructor.isMainInstructor = true;
-    }
-
-    if (createInstructor.studioName) {
-      try {
-        let studio: Studio;
-        // eslint-disable-next-line prefer-const
-        studio = await this.studioRepository.findOne({
-          where: { studioName: createInstructor.studioName },
-          // relations: ['mainInstructor'],
+    // 트랜잭션 사용
+    return await this.dataSource.transaction(
+      async (transactionalEntityManager) => {
+        // 유저 찾기
+        const findUser = await transactionalEntityManager.findOne(User, {
+          where: { kakaoMemberId: +userId },
+          relations: ['profile', 'studio', 'instructor'],
         });
-        // 일반 강사일때 studio 체크
-        if (!newInstructor.isMainInstructor) {
-          if (studio.studioName) {
-            instructor.studio = studio;
-            await this.studioRepository.save(instructor.studio);
-          }
-        } else if (newInstructor.isMainInstructor) {
-          // 대표강사 가입 최초 1명으로 제한
-          // if (studio && studio.mainInstructor.isMainInstructor) {
-          //   throw new ConflictException('Already exist main instructor');
-          // }
 
-          // 대표강사일때 studio 체크 및 없으면 생성
-          instructor.studio.studioName = createInstructor.studioName;
-          instructor.studio.studioRegionName =
-            createInstructor.studioRegionName || '';
-          // instructor.studio.mainInstructor = newInstructor;
-
-          await this.studioRepository.save(instructor.studio);
+        if (!findUser) {
+          throw new NotFoundException('User not found');
         }
-      } catch {
-        throw new NotFoundException('Not Found studio');
-      }
-    }
 
-    await this.instructorRepository.save(newInstructor);
-    await this.userRepository.save(instructor);
+        // 유저 정보 업데이트
+        findUser.name = createInstructor.name || findUser.name;
+        findUser.role = UserRole.INSTRUCTOR;
 
-    // await this.checkPendingUser(accessToken);
+        // Todo: 대표강사 존재 여부 후 2인 이상 가입 불가
 
-    return {
-      instructorId: newInstructor.id,
-      isMainInstructor: newInstructor.isMainInstructor,
-      studioName: instructor.studio.studioName,
-      studioRegion: instructor.studio.studioRegionName || '',
-    };
-  }
+        // 프로필 생성 또는 업데이트
+        if (!findUser.profile) {
+          const newProfile = transactionalEntityManager.create(Profile, {
+            user: findUser,
+            profile_image: '',
+            updatedAt: new Date(),
+          });
+          await transactionalEntityManager.save(Profile, newProfile);
 
-  private async createStudioAndProfile(accessToken: string): Promise<User> {
-    const { userId } = this.authService.decodeTokenUserId(accessToken);
+          findUser.profile = newProfile;
+        }
 
-    const user = await this.userRepository.findOne({
-      where: { kakaoMemberId: +userId },
-      relations: ['profile', 'studio'],
-    });
+        // 스튜디오 처리
+        let studio = await transactionalEntityManager.findOne(Studio, {
+          where: { studioName: createInstructor.studioName },
+        });
 
-    // if (user.profile) {
-    //   throw new NotFoundException('Already joined User');
-    // }
+        if (!studio && createInstructor.isMainInstructor) {
+          studio = transactionalEntityManager.create(Studio, {
+            studioName: createInstructor.studioName,
+            studioRegionName: createInstructor.studioRegionName || '',
+          });
+          await transactionalEntityManager.save(Studio, studio);
+        } else if (!studio && !createInstructor.isMainInstructor) {
+          throw new NotFoundException(ErrorCodes.ERR_41);
+        }
 
-    const studio = this.studioRepository.create();
+        findUser.studio = studio;
+        await transactionalEntityManager.save(User, findUser);
 
-    if (!user.profile) {
-      const newProfile = this.profileRepository.create({
-        user,
-      });
-      newProfile.updatedAt = new Date();
-      user.profile = await this.profileRepository.save(newProfile);
-    }
+        // Instructor 생성 및 저장
+        const newInstructor = transactionalEntityManager.create(Instructor, {
+          user: findUser,
+          isMainInstructor: createInstructor.isMainInstructor || false,
+          joinStatus: JoinStatus.PENDING,
+        });
+        const savedInstructor = await transactionalEntityManager.save(
+          Instructor,
+          newInstructor,
+        );
 
-    if (!user) {
-      throw new NotFoundException('Not Found Auth User');
-    }
-
-    user.studio = studio;
-    //
-    return user;
+        return {
+          instructorId: savedInstructor.id,
+          isMainInstructor: savedInstructor.isMainInstructor,
+          studioName: studio.studioName,
+          studioRegion: studio.studioRegionName || '',
+        };
+      },
+    );
   }
 
   async getInstructorsOnStudio(
@@ -194,7 +256,7 @@ export class UserService {
     limit: number = 10,
     accessToken: string,
   ) {
-    const { userId } = this.authService.decodeTokenUserId(accessToken);
+    const { userId } = this.authService.decodeAccessToken(accessToken);
 
     const user = await this.userRepository.findOne({
       where: { kakaoMemberId: +userId },
@@ -241,7 +303,7 @@ export class UserService {
   ) {
     // Todo: instructorId로 강사 하위 회원목록 필터링
 
-    const { userId } = this.authService.decodeTokenUserId(accessToken);
+    const { userId } = this.authService.decodeAccessToken(accessToken);
 
     const user = await this.userRepository.findOne({
       where: { kakaoMemberId: +userId },
@@ -253,6 +315,8 @@ export class UserService {
     const [users, total] = await queryBuilder
       .leftJoinAndSelect('user.profile', 'profile')
       .leftJoinAndSelect('user.member', 'member')
+      .leftJoinAndSelect('member.instructor', 'instructor')
+      .leftJoinAndSelect('instructor.user', 'instructorUser')
       .where('user.studio.id = :studioId', { studioId: user.studio.id })
       .andWhere('user.role = :role', { role: UserRole.MEMBER })
       .andWhere('member.joinStatus = :status', { status: JoinStatus.APPROVED })
@@ -267,6 +331,7 @@ export class UserService {
       name: user.name,
       createdAt: user.createdAt,
       profileImage: user.profile?.profile_image || null,
+      onInstructor: user.member.instructor.user.name,
     }));
 
     return {
@@ -288,7 +353,7 @@ export class UserService {
     limit: number = 10,
     accessToken: string,
   ) {
-    const { userId } = this.authService.decodeTokenUserId(accessToken);
+    const { userId } = this.authService.decodeAccessToken(accessToken);
 
     const user = await this.userRepository.findOne({
       where: { kakaoMemberId: +userId },
@@ -357,7 +422,7 @@ export class UserService {
     instructorId: string,
     memberId: string,
   ) {
-    const { userId } = this.authService.decodeTokenUserId(accessToken);
+    const { userId } = this.authService.decodeAccessToken(accessToken);
 
     const user = await this.userRepository.findOne({
       where: { kakaoMemberId: +userId },
@@ -365,16 +430,17 @@ export class UserService {
     });
 
     if (!user) {
-      throw new NotFoundException('User not found');
+      throw new NotFoundException(ErrorCodes.ERR_11);
     }
 
     const instructor = await this.instructorRepository.findOne({
-      where: { user: { id: user.id } },
+      // where: { user: { id: user.id } },
+      where: { id: instructorId },
       relations: ['members'],
     });
 
     if (!instructor) {
-      throw new NotFoundException('Instructor not found');
+      throw new NotFoundException(ErrorCodes.ERR_12);
     }
 
     const member = await this.memberRepository.findOne({
@@ -383,11 +449,11 @@ export class UserService {
     });
 
     if (!member) {
-      throw new NotFoundException('Member not found');
+      throw new NotFoundException(ErrorCodes.ERR_13);
     }
 
-    if (member.instructor.id === instructor.id) {
-      throw new BadRequestException('Already associated with the instructor');
+    if (member.instructor.id === instructorId) {
+      throw new BadRequestException(ErrorCodes.ERR_15);
     }
 
     // 이전 강사와의 관계 제거
@@ -404,11 +470,11 @@ export class UserService {
     });
 
     if (!user) {
-      throw new NotFoundException('User not found');
+      throw new NotFoundException(ErrorCodes.ERR_11);
     }
 
     if (user.role === UserRole.INSTRUCTOR && user.instructor.isMainInstructor) {
-      throw new BadRequestException('Main instructor cannot leave');
+      throw new BadRequestException(ErrorCodes.ERR_14);
     }
 
     await this.authService.leaveUser(user.kakaoMemberId);
@@ -459,7 +525,7 @@ export class UserService {
 
   // 가입승인 대기중인 유저 상태
   async joinPendingProcess(accessToken: string) {
-    const { userId } = this.authService.decodeTokenUserId(accessToken);
+    const { userId } = this.authService.decodeAccessToken(accessToken);
 
     const user = await this.userRepository.findOne({
       where: { kakaoMemberId: +userId },
@@ -510,39 +576,33 @@ export class UserService {
     await this.memberRepository.save(member);
   }
 
-  async checkPendingUser(accessToken: string) {
-    const { userId } = this.authService.decodeTokenUserId(accessToken);
+  async checkPendingUser(refreshToken: string) {
+    if (!refreshToken) {
+      throw new UnauthorizedException(ErrorCodes.ERR_01);
+    }
 
-    const user = await this.userRepository.findOne({
-      where: { kakaoMemberId: +userId },
-      relations: ['instructor', 'member'],
-    });
+    const user = await this.authService.findUserByRefreshToken(refreshToken);
 
     if (!user) {
-      throw new NotFoundException('User not found');
+      throw new NotFoundException(ErrorCodes.ERR_11);
     }
 
-    if (user.role === UserRole.INSTRUCTOR) {
-      if (user.instructor.joinStatus === JoinStatus.PENDING) {
-        throw new ForbiddenException({
-          status: 'PENDING',
-          message: '가입 승인 대기 중입니다.',
-          code: 'USER_PENDING',
-        });
-      }
-
-      return;
+    if (!user.studio) {
+      throw new UnauthorizedException(ErrorCodes.ERR_41);
     }
 
-    if (user.role === UserRole.MEMBER) {
-      if (user.member.joinStatus === JoinStatus.PENDING) {
-        throw new ForbiddenException({
-          status: 'PENDING',
-          message: '가입 승인 대기 중입니다.',
-          code: 'USER_PENDING',
-        });
-      }
-      return;
+    if (
+      user.role === UserRole.INSTRUCTOR &&
+      user.instructor.joinStatus === JoinStatus.PENDING
+    ) {
+      throw new ForbiddenException(ErrorCodes.ERR_05);
+    }
+
+    if (
+      user.role === UserRole.MEMBER &&
+      user.member.joinStatus === JoinStatus.PENDING
+    ) {
+      throw new ForbiddenException(ErrorCodes.ERR_05);
     }
   }
 }

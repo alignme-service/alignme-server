@@ -7,6 +7,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { JwtService } from '@nestjs/jwt';
 import { Reflector } from '@nestjs/core';
 import { IS_PUBLIC_KEY } from 'src/public.decorator';
+import ErrorCodes from '../constants/ErrorCodes';
 
 @Injectable()
 export class JwtAuthGuard extends AuthGuard('jwt') {
@@ -30,13 +31,7 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
 
   handleRequest(err, user) {
     if (err || !user) {
-      throw (
-        err ||
-        new UnauthorizedException({
-          errorCode: 'EXPIRED_TOKEN',
-          message: '토큰이 만료되었습니다.',
-        })
-      );
+      throw err || new UnauthorizedException(ErrorCodes.ERR_02);
     }
     return user;
   }

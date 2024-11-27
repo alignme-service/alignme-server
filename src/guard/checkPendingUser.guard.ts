@@ -28,7 +28,7 @@ export default class CheckPendingUserGuard implements CanActivate {
     const request = context.switchToHttp().getRequest();
     const accessToken = request.headers['authorization']?.split(' ')[1];
 
-    const { userId } = this.authService.decodeTokenUserId(accessToken);
+    const { userId } = this.authService.decodeAccessToken(accessToken);
 
     if (!accessToken) {
       throw new UnauthorizedException('require get accessToken');

@@ -12,6 +12,7 @@ import { ContentModule } from './content/content.module';
 import { MulterModule } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
+import { StudioModule } from './studio/studio.module';
 
 @Module({
   imports: [
@@ -54,6 +55,7 @@ import { extname } from 'path';
 
     AuthModule,
     UserModule,
+    StudioModule,
     ProfileModule,
     AwsModule,
     UtilsModule,

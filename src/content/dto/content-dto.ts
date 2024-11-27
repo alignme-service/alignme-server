@@ -17,3 +17,5 @@ export class ResponseSignupDto {
     name: string;
   };
 }
+
+export class ResponsePoseDataDto {}

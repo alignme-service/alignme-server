@@ -20,7 +20,7 @@ export class ProfileService {
   ) {}
 
   async getMypageInfo(accessToken: string) {
-    const extractUserInfo = this.authService.decodeTokenUserId(accessToken);
+    const extractUserInfo = this.authService.decodeAccessToken(accessToken);
     const userId = extractUserInfo.userId;
 
     const userInfo = await this.userRepository.findOne({
@@ -42,29 +42,32 @@ export class ProfileService {
   }
 
   async updateProfile(
-    userName: string,
-    file: Express.Multer.File,
     accessToken: string,
+    userName?: string,
+    file?: Express.Multer.File,
   ) {
-    const extractUserInfo = this.authService.decodeTokenUserId(accessToken);
+    const extractUserInfo = this.authService.decodeAccessToken(accessToken);
     const userId = extractUserInfo.userId;
 
-    const imgSrc = await this.imageUpload(file);
+    if (file) {
+      const findUser = await this.userRepository.findOne({
+        where: { kakaoMemberId: +userId },
+        relations: ['profile'],
+      });
+      const imgSrc = await this.imageUpload(file);
 
-    const findUser = await this.userRepository.findOne({
-      where: { kakaoMemberId: +userId },
-      relations: ['profile'],
-    });
+      findUser.profile.profile_image = imgSrc.imageUrl;
+      await this.profileRepository.save(findUser.profile);
+    }
 
-    findUser.profile.profile_image = imgSrc.imageUrl;
-    await this.profileRepository.save(findUser.profile);
+    if (userName) {
+      const user = await this.userRepository.findOne({
+        where: { kakaoMemberId: +userId },
+      });
 
-    const user = await this.userRepository.findOne({
-      where: { kakaoMemberId: +userId },
-    });
-
-    user.name = userName;
-    await this.userRepository.save(user);
+      user.name = userName;
+      await this.userRepository.save(user);
+    }
 
     return { message: 'Profile image successfully updated' };
   }

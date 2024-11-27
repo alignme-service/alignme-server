@@ -20,12 +20,12 @@ import {
   BaseCreateUserDto,
   MainInstructorCreateDto,
 } from './dto/baseCreateUser.dto';
-import { CreateMemberDto } from './dto/createMember.dto';
 import { GetAccessToken } from '../decorators/get-access-token.decorator';
 import { JoinStatus } from './constant/join-status.enum';
 import { PendingUserDto } from './dto/user-dto';
 import { UserRole } from './types/userRole';
 import { RolesGuard } from '../guard/role.guard';
+import { GetUserResponse } from './model/user.response';
 
 @Controller('users')
 @UseGuards(JwtAuthGuard)
@@ -36,14 +36,14 @@ export class UserController {
     summary: '멤버 회원가입',
     description: '멤버 회원가입',
   })
-  @ApiBody({ type: CreateMemberDto })
-  @UseGuards(JwtAuthGuard)
+  // @ApiBody({ type:  })
   @Post('/signup-member')
   createMember(
-    @Body() createMemberDto: CreateMemberDto,
+    @Body('studioId') studioId: string,
+    @Body('instructorId') instructorId: string,
     @GetAccessToken() accessToken: string,
   ) {
-    return this.userService.createMember(accessToken, createMemberDto);
+    return this.userService.createMember(accessToken, studioId, instructorId);
   }
 
   @ApiOperation({
@@ -61,7 +61,6 @@ export class UserController {
       },
     },
   })
-  @UseGuards(JwtAuthGuard)
   @Post('/signup-instructor')
   createInstructor(
     @Body() createInstructor: MainInstructorCreateDto,
@@ -209,6 +208,15 @@ export class UserController {
       instructorId,
       memberId,
     );
+  }
+
+  // 유저정보 조회
+  @Get('user-info')
+  @ApiOperation({ summary: '로그인 시 유저 정보 조회' })
+  @ApiResponse({ status: 200, description: '성공', type: GetUserResponse })
+  @ApiResponse({ status: 404, description: 'ERR_11 유효 하지 않은 유저 정보' })
+  async getUserInfo(@GetAccessToken() accessToken: string) {
+    return this.userService.getUserInfo(accessToken);
   }
 
   // 가입대기중인 상태

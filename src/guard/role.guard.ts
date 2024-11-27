@@ -35,7 +35,7 @@ export class RolesGuard implements CanActivate {
       throw new UnauthorizedException('Access token is missing');
     }
 
-    const { userId } = this.authService.decodeTokenUserId(accessToken);
+    const { userId } = this.authService.decodeAccessToken(accessToken);
     const isMainInstructor = await this.userService.findMainInstructor(+userId);
 
     if (!isMainInstructor) {

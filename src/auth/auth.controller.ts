@@ -1,5 +1,4 @@
 import {
-  Body,
   Controller,
   Get,
   HttpException,
@@ -7,25 +6,25 @@ import {
   NotFoundException,
   Post,
   Query,
+  Req,
   Res,
   UseGuards,
 } from '@nestjs/common';
 import axios from 'axios';
 import { AuthGuard } from '@nestjs/passport';
 import { ConfigService } from '@nestjs/config';
-import { Response } from 'express';
+import { Response, Request } from 'express';
 import { AuthService, ReturnValidateUser } from './auth.service';
-import { JwtAuthGuard } from 'src/guard/JwtAuthGuard';
 import { Public } from 'src/public.decorator';
 import { UtilsService } from '../utils/utils.service';
 import {
   ApiBody,
+  ApiCreatedResponse,
   ApiExcludeEndpoint,
   ApiOperation,
   ApiQuery,
-  ApiResponse,
 } from '@nestjs/swagger';
-import { GetAccessToken } from '../decorators/get-access-token.decorator';
+import { SignInResponse } from './model/auth.response';
 
 @Controller('auth')
 export class AuthController {
@@ -45,24 +44,34 @@ export class AuthController {
     description: '자동로그인 처리 토큰 확인',
   })
   @ApiBody({
-    description: 'accessToken',
     schema: {
-      type: 'object',
+      type: 'string',
       properties: {
         refreshToken: {
           type: 'string',
         },
       },
     },
-    type: String,
   })
-  async autoLogin(
-    @Body('refreshToken') refreshToken: string,
-    @GetAccessToken() accessToken: string,
-  ) {
-    const { isExpired, user, isMainInstructor } =
-      await this.authService.autoLogin(accessToken, refreshToken);
-    return { isExpired, user, isMainInstructor };
+  @ApiCreatedResponse({
+    description: '자동로그인 처리 결과',
+    schema: {
+      type: 'string',
+      properties: {
+        isExpired: {
+          type: 'string',
+        },
+      },
+    },
+  })
+  async autoLogin(@Req() req: Request) {
+    const refreshToken = req.cookies['refreshToken'];
+
+    const { isExpired } = await this.authService.autoLogin(refreshToken);
+
+    return {
+      isExpired,
+    };
   }
 
   @ApiOperation({
@@ -72,29 +81,15 @@ export class AuthController {
     name: 'code',
     description: '클라이언트에서 redirect uri에 포함된 code',
   })
-  @ApiResponse({
-    status: 200,
+  @ApiCreatedResponse({
     description: 'isAlerady: false -> 신규유저',
-    schema: {
-      type: 'object',
-      properties: {
-        message: { type: 'string' },
-        data: {
-          type: 'object',
-          properties: {
-            isAlready: { type: 'boolean' },
-            accessToken: { type: 'string' },
-            refreshToken: { type: 'string' },
-            kakaoMemberId: { type: 'string' },
-            email: { type: 'string' },
-            name: { type: 'string' },
-          },
-        },
-      },
-    },
+    type: SignInResponse,
   })
   @Get('/user/login')
-  async login(@Query('code') code: string, @Res() res: Response) {
+  async login(
+    @Query('code') code: string,
+    @Res({ passthrough: true }) res: Response,
+  ) {
     const GET_TOKEN_URL = this.configService.get('GET_TOKEN_URL');
     const GET_USER_INFO_URL = this.configService.get('GET_USER_INFO_URL');
     const GRANT_TYPE = this.configService.get('GRANT_TYPE');
@@ -136,12 +131,12 @@ export class AuthController {
       const { isAlready, accessToken, refreshToken }: ReturnValidateUser =
         await this.authService.validateUser(authPayload);
 
-      res.setHeader('Authorization', 'Bearer ' + [accessToken, refreshToken]);
-      res.cookie('accessToken', accessToken, {
-        httpOnly: true,
-      });
       res.cookie('refreshToken', refreshToken, {
+        expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        domain: 'localhost',
         httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
       });
 
       res.status(200).json({
@@ -149,13 +144,11 @@ export class AuthController {
         data: {
           isAlready,
           accessToken,
-          refreshToken,
           ...authPayload,
         },
       });
     } catch (error) {
       console.log('error', error);
-      // return res.status(404).json({ message: 'Login failed' });
       throw new NotFoundException('Login failed');
     }
   }
@@ -176,16 +169,11 @@ export class AuthController {
     type: String,
   })
   @Public()
-  @UseGuards(JwtAuthGuard)
   @Post('refresh')
-  async refreshToken(
-    @Body('refreshToken') refreshToken: string,
-    @GetAccessToken() accessToken: string,
-  ) {
-    const tokens = await this.authService.refreshToken(
-      refreshToken,
-      accessToken,
-    );
+  async refreshToken(@Req() req: Request) {
+    console.log('req.cookies', req.cookies);
+    const refreshToken = req.cookies['refreshToken'];
+    const tokens = await this.authService.refreshToken(refreshToken);
     return {
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,

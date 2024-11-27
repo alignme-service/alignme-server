@@ -1,4 +1,9 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  UnauthorizedException,
+  UseGuards,
+} from '@nestjs/common';
 import { AppService } from './app.service';
 import { JwtAuthGuard } from './guard/JwtAuthGuard';
 import { Public } from './public.decorator';
@@ -16,6 +21,15 @@ export class AppController {
   @Get('/heartbreak')
   getHello(): string {
     return this.appService.checkHealth();
+  }
+
+  @Public()
+  @Get('/test')
+  getTest(): string {
+    throw new UnauthorizedException({
+      errorCode: 'UNAUTHORIZED',
+      message: 'UNAUTHORIZED',
+    });
   }
 
   @ApiOperation({

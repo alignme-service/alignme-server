@@ -21,7 +21,7 @@ import { JwtAuthGuard } from '../guard/JwtAuthGuard';
 import CheckPendingUserGuard from '../guard/checkPendingUser.guard';
 
 @Controller('content')
-@UseGuards(JwtAuthGuard)
+// @UseGuards(JwtAuthGuard)
 @UseGuards(CheckPendingUserGuard)
 export class ContentController {
   constructor(private readonly contentService: ContentService) {}
@@ -34,6 +34,7 @@ export class ContentController {
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 10,
     @GetAccessToken() accessToken: string,
+    @Query('instructorId') instructorId?: string,
   ) {
     const parsedPage = parseInt(page as any, 10);
     const parsedLimit = parseInt(limit as any, 10);
@@ -42,6 +43,7 @@ export class ContentController {
       isNaN(parsedPage) ? 1 : parsedPage,
       isNaN(parsedLimit) ? 10 : parsedLimit,
       accessToken,
+      instructorId,
     );
   }
 

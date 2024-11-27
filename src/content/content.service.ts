@@ -4,6 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+
 import { Content } from './entites/content.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -63,12 +64,17 @@ export class ContentService {
   //   };
   // }
 
-  async getContents(page: number, limit: number, accessToken: string) {
-    const { userId } = this.authService.decodeTokenUserId(accessToken);
+  async getContents(
+    page: number,
+    limit: number,
+    accessToken: string,
+    instructorIdByMember?: string,
+  ) {
+    const { userId } = this.authService.decodeAccessToken(accessToken);
 
     const user = await this.userRepository.findOne({
       where: { kakaoMemberId: +userId },
-      relations: ['instructor'],
+      relations: ['instructor', 'member'],
     });
 
     if (!user) {
@@ -83,12 +89,12 @@ export class ContentService {
       }
       instructorId = user.instructor.id;
     } else if (user.role === UserRole.MEMBER) {
-      if (!user.member || !user.member.instructor) {
+      if (!user.member) {
         throw new NotFoundException(
           'Member or associated instructor not found',
         );
       }
-      instructorId = user.member.instructor.id;
+      instructorId = instructorIdByMember || user.member.instructor.id;
     } else {
       throw new ForbiddenException(
         'User does not have permission to access contents',
@@ -109,10 +115,14 @@ export class ContentService {
 
     const enrichedContents = contents.map((content) => ({
       ...content,
-      instructor: {
-        instructorId: user.instructor.id,
-        instructorName: user.name,
-      },
+      ...(instructorIdByMember
+        ? {}
+        : {
+            instructor: {
+              instructorId: user.instructor.id,
+              instructorName: user.name,
+            },
+          }),
     }));
 
     return {
@@ -141,7 +151,7 @@ export class ContentService {
     ) {
       throw new BadRequestException('Title, level, description are required');
     }
-    const { userId } = this.authService.decodeTokenUserId(accessToken);
+    const { userId } = this.authService.decodeAccessToken(accessToken);
 
     const user = await this.userRepository.findOne({
       where: { kakaoMemberId: +userId },
@@ -152,19 +162,20 @@ export class ContentService {
       throw new Error('User not found');
     }
 
-    const imgSrc = await this.imageUpload(file);
+    // const imgSrc = await this.imageUpload(file);
 
-    const updateContent = this.contentRepository.create({
-      title: createContentDto.title,
-      level: createContentDto.level,
-      description: createContentDto.description,
-      imageUrl: imgSrc.imageUrl,
-      instructor: user.instructor,
-    });
+    // const updateContent = this.contentRepository.create({
+    //   title: createContentDto.title,
+    //   level: createContentDto.level,
+    //   description: createContentDto.description,
+    //   imageUrl: imgSrc.imageUrl,
+    //   instructor: user.instructor,
+    // });
 
-    await this.contentRepository.save(updateContent);
+    // await this.contentRepository.save(updateContent);
 
-    return updateContent;
+    // return updateContent;
+    return { true: true };
   }
 
   async updateContent(
@@ -207,7 +218,7 @@ export class ContentService {
   }
 
   async deleteContent(contentId: string, accessToken: string) {
-    const { userId } = this.authService.decodeTokenUserId(accessToken);
+    const { userId } = this.authService.decodeAccessToken(accessToken);
     const user = await this.userRepository.findOne({
       where: { kakaoMemberId: +userId },
     });

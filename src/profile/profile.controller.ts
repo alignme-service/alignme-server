@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -15,6 +16,7 @@ import { updateProfileImageDto } from './dto/updateProfileImage';
 import { JwtAuthGuard } from '../guard/JwtAuthGuard';
 import { GetAccessToken } from '../decorators/get-access-token.decorator';
 import CheckPendingUserGuard from '../guard/checkPendingUser.guard';
+import ErrorCodes from '../constants/ErrorCodes';
 
 @Controller('profile')
 @UseGuards(JwtAuthGuard)
@@ -31,14 +33,17 @@ export class ProfileController {
   @HttpCode(200)
   @Post('update')
   async saveImage(
-    @Body() body: { userName: string },
-    @UploadedFile() file: Express.Multer.File,
     @GetAccessToken() accessToken: string,
+    @Body() body?: { userName: string },
+    @UploadedFile() file?: Express.Multer.File,
   ) {
+    if (!file && !body.userName) {
+      throw new BadRequestException(ErrorCodes.ERR_32);
+    }
     return await this.profileService.updateProfile(
+      accessToken,
       body.userName,
       file,
-      accessToken,
     );
   }
 

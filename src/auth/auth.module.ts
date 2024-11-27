@@ -22,9 +22,9 @@ import { UtilsService } from '../utils/utils.service';
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
         secret: configService.get<string>('JWT_SECRET'),
-        signOptions: {
-          expiresIn: '1d', // accessToken 유효기간
-        },
+        // signOptions: {
+        //   expiresIn: '7d',
+        // },
       }),
       inject: [ConfigService],
     }),
