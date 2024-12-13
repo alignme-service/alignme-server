@@ -19,6 +19,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { ContentLevelEnum } from './constant/content.enum';
 import { JwtAuthGuard } from '../guard/JwtAuthGuard';
 import CheckPendingUserGuard from '../guard/checkPendingUser.guard';
+import { Landmark } from '../pose/dto/pose-dto';
 
 @Controller('content')
 // @UseGuards(JwtAuthGuard)
@@ -75,9 +76,9 @@ export class ContentController {
     @GetAccessToken() accessToken: string,
   ) {
     return this.contentService.createContent(
+      file,
       createContentDto,
       accessToken,
-      file,
     );
   }
 

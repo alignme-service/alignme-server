@@ -13,6 +13,7 @@ import { MulterModule } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
 import { StudioModule } from './studio/studio.module';
+import { PoseModule } from './pose/pose.module';
 
 @Module({
   imports: [
@@ -60,6 +61,7 @@ import { StudioModule } from './studio/studio.module';
     AwsModule,
     UtilsModule,
     ContentModule,
+    PoseModule,
   ],
   controllers: [AppController],
   providers: [AppService],

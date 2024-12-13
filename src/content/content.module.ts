@@ -9,10 +9,11 @@ import { AwsModule } from '../aws/aws.module';
 import { AuthModule } from '../auth/auth.module';
 import { Instructor } from '../user/entites/instructor.entity';
 import { Member } from '../user/entites/member.entity';
+import { Pose } from '../pose/entities/pose.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Content, User, Instructor, Member]),
+    TypeOrmModule.forFeature([Content, User, Instructor, Member, Pose]),
     AwsModule,
     AuthModule,
   ],

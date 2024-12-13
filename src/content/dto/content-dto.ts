@@ -4,6 +4,7 @@ export class CreateContentDto {
   title: string;
   level: ContentLevelEnum;
   description: string;
+  poseData: string;
 }
 
 export class ResponseSignupDto {

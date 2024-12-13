@@ -14,6 +14,8 @@ import { User } from '../user/entites/user.entity';
 import { AwsService } from '../aws/aws.service';
 import { UtilsService } from '../utils/utils.service';
 import { UserRole } from '../user/types/userRole';
+import { Landmark } from '../pose/dto/pose-dto';
+import { Pose } from '../pose/entities/pose.entity';
 
 @Injectable()
 export class ContentService {
@@ -25,6 +27,8 @@ export class ContentService {
     private authService: AuthService,
     private readonly awsService: AwsService,
     private readonly utilsService: UtilsService,
+    @InjectRepository(Pose)
+    private readonly poseRepository: Repository<Pose>,
   ) {}
 
   // async getContents(page: number, limit: number, accessToken: string) {
@@ -137,9 +141,9 @@ export class ContentService {
   }
 
   async createContent(
+    file: Express.Multer.File,
     createContentDto: CreateContentDto,
     accessToken: string,
-    file: Express.Multer.File,
   ) {
     if (!file) {
       throw new BadRequestException('Image file is required');
@@ -147,9 +151,12 @@ export class ContentService {
     if (
       !createContentDto.title ||
       !createContentDto.level ||
-      !createContentDto.description
+      !createContentDto.description ||
+      !createContentDto.poseData.length
     ) {
-      throw new BadRequestException('Title, level, description are required');
+      throw new BadRequestException(
+        'Title, level, description, poseData are required',
+      );
     }
     const { userId } = this.authService.decodeAccessToken(accessToken);
 
@@ -162,20 +169,26 @@ export class ContentService {
       throw new Error('User not found');
     }
 
-    // const imgSrc = await this.imageUpload(file);
+    const pose = this.poseRepository.create({
+      poseData: createContentDto.poseData,
+    });
+    await this.poseRepository.save(pose);
 
-    // const updateContent = this.contentRepository.create({
-    //   title: createContentDto.title,
-    //   level: createContentDto.level,
-    //   description: createContentDto.description,
-    //   imageUrl: imgSrc.imageUrl,
-    //   instructor: user.instructor,
-    // });
+    const imgSrc = await this.imageUpload(file);
 
-    // await this.contentRepository.save(updateContent);
+    const updateContent = this.contentRepository.create({
+      title: createContentDto.title,
+      level: createContentDto.level,
+      description: createContentDto.description,
+      imageUrl: imgSrc.imageUrl,
+      instructor: user.instructor,
+      pose,
+    });
 
-    // return updateContent;
-    return { true: true };
+    await this.contentRepository.save(updateContent);
+
+    return updateContent;
+    // return { true: true };
   }
 
   async updateContent(
