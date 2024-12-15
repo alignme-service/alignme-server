@@ -67,6 +67,21 @@ export class UserService {
     };
   }
 
+  async checkUserIsAlready(accessToken: string) {
+    const { userId } = this.authService.decodeAccessToken(accessToken);
+
+    const user = await this.userRepository.findOne({
+      where: { kakaoMemberId: +userId },
+      relations: ['member'],
+    });
+
+    if (!user) {
+      throw new NotFoundException(ErrorCodes.ERR_11);
+    }
+
+    return { joinStatus: user.member.joinStatus };
+  }
+
   // async createMember(accessToken: string, createMemberDto: CreateMemberDto) {
   //   if (!createMemberDto.studioName) {
   //     throw new NotFoundException(ErrorCodes.ERR_41);
@@ -255,7 +270,25 @@ export class UserService {
     page: number = 1,
     limit: number = 10,
     accessToken: string,
+    studioId?: string,
   ) {
+    if (studioId !== '') {
+      const findInstructors = await this.instructorRepository.find({
+        where: { user: { studio: { id: studioId } } },
+        relations: ['user', 'user.profile'],
+      });
+
+      if (!findInstructors) {
+        throw new NotFoundException('Instructor not found');
+      }
+
+      return findInstructors.map((instructor) => ({
+        id: instructor.id,
+        name: instructor.user.name,
+        profileImage: instructor.user.profile?.profile_image || null,
+      }));
+    }
+
     const { userId } = this.authService.decodeAccessToken(accessToken);
 
     const user = await this.userRepository.findOne({

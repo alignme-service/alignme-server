@@ -118,6 +118,7 @@ export class UserController {
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 10,
     @GetAccessToken() accessToken: string,
+    @Query('studioId') studioId?: string,
   ) {
     const parsedPage = parseInt(page as any, 10);
     const parsedLimit = parseInt(limit as any, 10);
@@ -126,6 +127,7 @@ export class UserController {
       isNaN(parsedPage) ? 1 : parsedPage,
       isNaN(parsedLimit) ? 10 : parsedLimit,
       accessToken,
+      studioId,
     );
   }
 
@@ -220,5 +222,14 @@ export class UserController {
   }
 
   // 가입대기중인 상태
-  async joinPendingProcess(@GetAccessToken() accessToken: string) {}
+  @Get('check-user-joined')
+  @ApiOperation({ summary: '로그인 시 유저 가입되어있는지 확인' })
+  @ApiResponse({
+    status: 200,
+    description: '성공',
+  })
+  @ApiResponse({ status: 404, description: 'ERR_11 유효 하지 않은 유저 정보' })
+  async joinPendingProcess(@GetAccessToken() accessToken: string) {
+    return this.userService.checkUserIsAlready(accessToken);
+  }
 }
