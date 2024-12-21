@@ -34,19 +34,19 @@ export class AuthService {
     private dataSource: DataSource,
   ) {}
 
-  async autoLogin(refreshToken: string) {
-    const { isExpired } = await this.verifyToken(refreshToken);
-
-    if (isExpired) {
-      throw new UnauthorizedException(ErrorCodes.ERR_02);
-    }
-
-    await this.userService.checkPendingUser(refreshToken);
-
-    return {
-      isExpired,
-    };
-  }
+  // async autoLogin(refreshToken: string) {
+  //   const { isExpired } = await this.verifyToken(refreshToken);
+  //
+  //   if (isExpired) {
+  //     throw new UnauthorizedException(ErrorCodes.ERR_02);
+  //   }
+  //
+  //   await this.userService.checkPendingUser(refreshToken);
+  //
+  //   return {
+  //     isExpired,
+  //   };
+  // }
 
   async validateUser(payload: {
     kakaoMemberId: number;
@@ -54,7 +54,7 @@ export class AuthService {
     name: string;
   }): Promise<ReturnValidateUser | null> {
     const { kakaoMemberId, email, name } = payload;
-
+    // isAlready: true => 이미 회원가입단계 끝낸 유저, false => ~ 안끝낸유저
     let isAlready = true;
 
     const findUser: User = await this.findUserByKakaoMemberId(kakaoMemberId);
@@ -89,8 +89,12 @@ export class AuthService {
         isAlready,
         accessToken,
         refreshToken,
-        // ...findUser,
       };
+    }
+
+    // 유저가 카톡 가입만 하고 회원가입 안했을때
+    if (!findUser?.studio?.id) {
+      isAlready = false;
     }
 
     // 유저 있을때 리프레시토큰 유효성 검사
@@ -220,7 +224,7 @@ export class AuthService {
     try {
       return await this.userRepository.findOne({
         where: { kakaoMemberId },
-        relations: ['auth'],
+        relations: ['auth', 'studio'],
       });
     } catch {
       throw new NotFoundException(ErrorCodes.ERR_11);

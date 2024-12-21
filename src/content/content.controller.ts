@@ -17,9 +17,7 @@ import { CreateContentDto } from './dto/content-dto';
 import { GetAccessToken } from '../decorators/get-access-token.decorator';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ContentLevelEnum } from './constant/content.enum';
-import { JwtAuthGuard } from '../guard/JwtAuthGuard';
 import CheckPendingUserGuard from '../guard/checkPendingUser.guard';
-import { Landmark } from '../pose/dto/pose-dto';
 
 @Controller('content')
 // @UseGuards(JwtAuthGuard)
@@ -46,6 +44,12 @@ export class ContentController {
       accessToken,
       instructorId,
     );
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: '특정컨텐츠 진입전 pose 데이터 조회' })
+  async getContentById(@Param('id') id: string) {
+    return this.contentService.getContentById(id);
   }
 
   @Post()
@@ -82,7 +86,7 @@ export class ContentController {
     );
   }
 
-  @Patch(':id')
+  @Post(':id')
   @ApiOperation({ summary: '콘텐츠 수정' })
   @ApiResponse({ status: 200, description: '성공' })
   // @UseInterceptors(

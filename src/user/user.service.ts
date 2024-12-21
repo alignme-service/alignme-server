@@ -67,21 +67,6 @@ export class UserService {
     };
   }
 
-  async checkUserIsAlready(accessToken: string) {
-    const { userId } = this.authService.decodeAccessToken(accessToken);
-
-    const user = await this.userRepository.findOne({
-      where: { kakaoMemberId: +userId },
-      relations: ['member'],
-    });
-
-    if (!user) {
-      throw new NotFoundException(ErrorCodes.ERR_11);
-    }
-
-    return { joinStatus: user.member.joinStatus };
-  }
-
   // async createMember(accessToken: string, createMemberDto: CreateMemberDto) {
   //   if (!createMemberDto.studioName) {
   //     throw new NotFoundException(ErrorCodes.ERR_41);
@@ -636,6 +621,25 @@ export class UserService {
       user.member.joinStatus === JoinStatus.PENDING
     ) {
       throw new ForbiddenException(ErrorCodes.ERR_05);
+    }
+  }
+
+  async getMemberOfStudioInfo(accessToken: string) {
+    const { userId } = this.authService.decodeAccessToken(accessToken);
+
+    try {
+      const user = await this.userRepository.findOne({
+        where: { kakaoMemberId: +userId },
+        relations: ['member.instructor', 'member.instructor.user', 'studio'],
+      });
+
+      return {
+        id: user.member.instructor.id,
+        name: user.member.instructor.user.name,
+        studioName: user.studio.studioName,
+      };
+    } catch (error) {
+      console.error(error);
     }
   }
 }

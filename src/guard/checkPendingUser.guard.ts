@@ -13,6 +13,7 @@ import { AuthService } from '../auth/auth.service';
 import { JoinStatus } from '../user/constant/join-status.enum';
 import { UserRole } from '../user/types/userRole';
 import { Instructor } from '../user/entites/instructor.entity';
+import { Member } from '../user/entites/member.entity';
 
 @Injectable()
 export default class CheckPendingUserGuard implements CanActivate {
@@ -21,6 +22,8 @@ export default class CheckPendingUserGuard implements CanActivate {
     private readonly userRepository: Repository<User>,
     @InjectRepository(Instructor)
     private readonly instructorRepository: Repository<Instructor>,
+    @InjectRepository(Member)
+    private readonly memberRepository: Repository<Member>,
     private authService: AuthService,
   ) {}
 
@@ -48,6 +51,19 @@ export default class CheckPendingUserGuard implements CanActivate {
         where: { user: { id: user.id } },
       });
       if (instructor.joinStatus === JoinStatus.PENDING) {
+        throw new ForbiddenException({
+          status: 'PENDING',
+          message: '가입 승인 대기 중입니다.',
+          code: 'USER_PENDING',
+        });
+      }
+    }
+
+    if (user.role === UserRole.MEMBER) {
+      const member = await this.memberRepository.findOne({
+        where: { user: { id: user.id } },
+      });
+      if (member.joinStatus === JoinStatus.PENDING) {
         throw new ForbiddenException({
           status: 'PENDING',
           message: '가입 승인 대기 중입니다.',

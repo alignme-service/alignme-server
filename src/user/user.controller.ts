@@ -221,15 +221,10 @@ export class UserController {
     return this.userService.getUserInfo(accessToken);
   }
 
-  // 가입대기중인 상태
-  @Get('check-user-joined')
-  @ApiOperation({ summary: '로그인 시 유저 가입되어있는지 확인' })
-  @ApiResponse({
-    status: 200,
-    description: '성공',
-  })
-  @ApiResponse({ status: 404, description: 'ERR_11 유효 하지 않은 유저 정보' })
-  async joinPendingProcess(@GetAccessToken() accessToken: string) {
-    return this.userService.checkUserIsAlready(accessToken);
+  // 멤버의 스튜디오/강사 조회
+  @Get('memberOfStudioInfo')
+  @ApiOperation({ summary: '멤버의 스튜디오/강사 조회' })
+  async getMemberOfStudioInfo(@GetAccessToken() accessToken: string) {
+    return this.userService.getMemberOfStudioInfo(accessToken);
   }
 }

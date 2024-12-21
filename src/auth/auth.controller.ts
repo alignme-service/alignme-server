@@ -25,6 +25,7 @@ import {
   ApiQuery,
 } from '@nestjs/swagger';
 import { SignInResponse } from './model/auth.response';
+import { GetAccessToken } from '../decorators/get-access-token.decorator';
 
 @Controller('auth')
 export class AuthController {
@@ -34,46 +35,45 @@ export class AuthController {
     private readonly utilsService: UtilsService,
   ) {}
 
-  @ApiExcludeEndpoint()
-  @Get('/user/login/kakao')
-  @UseGuards(AuthGuard('kakao'))
-  async kakaoAuth() {}
-
-  @Post('auto-login')
-  @ApiOperation({
-    description: '자동로그인 처리 토큰 확인',
-  })
-  @ApiBody({
-    schema: {
-      type: 'string',
-      properties: {
-        refreshToken: {
-          type: 'string',
-        },
-      },
-    },
-  })
-  @ApiCreatedResponse({
-    description: '자동로그인 처리 결과',
-    schema: {
-      type: 'string',
-      properties: {
-        isExpired: {
-          type: 'string',
-        },
-      },
-    },
-  })
-  async autoLogin(@Req() req: Request) {
-    const refreshToken = req.cookies['refreshToken'];
-
-    const { isExpired } = await this.authService.autoLogin(refreshToken);
-
-    return {
-      isExpired,
-    };
-  }
-
+  // @ApiExcludeEndpoint()
+  // @Get('/user/login/kakao')
+  // @UseGuards(AuthGuard('kakao'))
+  // async kakaoAuth() {}
+  //
+  // @Post('auto-login')
+  // @ApiOperation({
+  //   description: '자동로그인 처리 토큰 확인',
+  // })
+  // @ApiBody({
+  //   schema: {
+  //     type: 'string',
+  //     properties: {
+  //       refreshToken: {
+  //         type: 'string',
+  //       },
+  //     },
+  //   },
+  // })
+  // @ApiCreatedResponse({
+  //   description: '자동로그인 처리 결과',
+  //   schema: {
+  //     type: 'string',
+  //     properties: {
+  //       isExpired: {
+  //         type: 'string',
+  //       },
+  //     },
+  //   },
+  // })
+  // async autoLogin(@Req() req: Request) {
+  //   const refreshToken = req.cookies['refreshToken'];
+  //
+  //   const { isExpired } = await this.authService.autoLogin(refreshToken);
+  //
+  //   return {
+  //     isExpired,
+  //   };
+  // }
   @ApiOperation({
     description: '카톡 소셜 로그인 인증 + 유저 가입처리',
   })
@@ -82,7 +82,8 @@ export class AuthController {
     description: '클라이언트에서 redirect uri에 포함된 code',
   })
   @ApiCreatedResponse({
-    description: 'isAlerady: false -> 신규유저',
+    description:
+      'isAlready: true => 이미 회원가입단계 끝낸 유저, false => ~ 안끝낸유저',
     type: SignInResponse,
   })
   @Get('/user/login')
@@ -140,7 +141,7 @@ export class AuthController {
       });
 
       res.status(200).json({
-        message: 'Kakao login successful',
+        message: 'login successful',
         data: {
           isAlready,
           accessToken,

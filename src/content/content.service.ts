@@ -14,7 +14,6 @@ import { User } from '../user/entites/user.entity';
 import { AwsService } from '../aws/aws.service';
 import { UtilsService } from '../utils/utils.service';
 import { UserRole } from '../user/types/userRole';
-import { Landmark } from '../pose/dto/pose-dto';
 import { Pose } from '../pose/entities/pose.entity';
 
 @Injectable()
@@ -78,7 +77,7 @@ export class ContentService {
 
     const user = await this.userRepository.findOne({
       where: { kakaoMemberId: +userId },
-      relations: ['instructor', 'member'],
+      relations: ['instructor', 'member.instructor'],
     });
 
     if (!user) {
@@ -88,16 +87,8 @@ export class ContentService {
     let instructorId;
 
     if (user.role === UserRole.INSTRUCTOR) {
-      if (!user.instructor) {
-        throw new NotFoundException('Instructor not found');
-      }
       instructorId = user.instructor.id;
     } else if (user.role === UserRole.MEMBER) {
-      if (!user.member) {
-        throw new NotFoundException(
-          'Member or associated instructor not found',
-        );
-      }
       instructorId = instructorIdByMember || user.member.instructor.id;
     } else {
       throw new ForbiddenException(
@@ -123,7 +114,10 @@ export class ContentService {
         ? {}
         : {
             instructor: {
-              instructorId: user.instructor.id,
+              instructorId:
+                user.role === UserRole.INSTRUCTOR
+                  ? user.instructor.id
+                  : user.member.instructor.id,
               instructorName: user.name,
             },
           }),
@@ -227,7 +221,7 @@ export class ContentService {
 
     await this.contentRepository.save(content);
 
-    return content;
+    return content.pose;
   }
 
   async deleteContent(contentId: string, accessToken: string) {
@@ -256,6 +250,19 @@ export class ContentService {
     await this.contentRepository.remove(content);
 
     return { message: 'Content successfully deleted' };
+  }
+
+  async getContentById(contentId: string) {
+    const content = await this.contentRepository.findOne({
+      where: { id: +contentId },
+      relations: ['pose'],
+    });
+
+    if (!content) {
+      throw new NotFoundException('Content not found');
+    }
+
+    return content;
   }
 
   private async imageUpload(file: Express.Multer.File) {
