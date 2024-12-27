@@ -185,7 +185,7 @@ export class AuthService {
 
     let auth: Auth;
 
-    if (!auth) {
+    if (!user) {
       auth = this.authRepository.create({ user });
     }
 

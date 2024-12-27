@@ -22,14 +22,17 @@ import { PoseModule } from './pose/pose.module';
       isGlobal: true, // 환경 변수를 글로벌로 사용
     }),
     TypeOrmModule.forRoot({
-      type: process.env.NODE_ENV === 'production' ? 'mysql' : 'postgres',
+      type: 'postgres',
       host: process.env.DATABASE_HOST,
       port: +process.env.DATABASE_PORT,
       username: process.env.DATABASE_USERNAME,
       password: process.env.DATABASE_PASSWORD,
       database: process.env.DATABASE_NAME,
       entities: [__dirname + '/**/*.entity{.ts,.js}'],
-      synchronize: true,
+      synchronize: false,
+      // ssl: {
+      //   rejectUnauthorized: false,
+      // },
     }),
     MulterModule.register({
       storage: diskStorage({
