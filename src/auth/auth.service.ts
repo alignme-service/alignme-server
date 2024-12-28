@@ -185,7 +185,7 @@ export class AuthService {
 
     let auth: Auth;
 
-    if (!user) {
+    if (!auth) {
       auth = this.authRepository.create({ user });
     }
 
@@ -221,6 +221,8 @@ export class AuthService {
   }
 
   async findUserByKakaoMemberId(kakaoMemberId: number): Promise<User> {
+    console.log('@@@ findUserByKakaoMemberId');
+
     try {
       return await this.userRepository.findOne({
         where: { kakaoMemberId },
@@ -302,7 +304,8 @@ export class AuthService {
 
       return { isExpired };
     } catch {
-      throw new UnauthorizedException(ErrorCodes.ERR_01);
+      return { isExpired: false };
+      // throw new UnauthorizedException(ErrorCodes.ERR_01);
     }
   }
 }
