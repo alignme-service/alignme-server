@@ -257,22 +257,22 @@ export class UserService {
     accessToken: string,
     studioId?: string,
   ) {
-    if (studioId !== '') {
-      const findInstructors = await this.instructorRepository.find({
-        where: { user: { studio: { id: studioId } } },
-        relations: ['user', 'user.profile'],
-      });
-
-      if (!findInstructors) {
-        throw new NotFoundException('Instructor not found');
-      }
-
-      return findInstructors.map((instructor) => ({
-        id: instructor.id,
-        name: instructor.user.name,
-        profileImage: instructor.user.profile?.profile_image || null,
-      }));
-    }
+    // if (studioId !== '') {
+    //   const findInstructors = await this.instructorRepository.find({
+    //     where: { user: { studio: { id: studioId } } },
+    //     relations: ['user', 'user.profile'],
+    //   });
+    //
+    //   if (!findInstructors) {
+    //     throw new NotFoundException('Instructor not found');
+    //   }
+    //
+    //   return findInstructors.map((instructor) => ({
+    //     id: instructor.id,
+    //     name: instructor.user.name,
+    //     profileImage: instructor.user.profile?.profile_image || null,
+    //   }));
+    // }
 
     const { userId } = this.authService.decodeAccessToken(accessToken);
 
@@ -283,7 +283,7 @@ export class UserService {
 
     const [instructors, total] = await this.instructorRepository.findAndCount({
       where: {
-        user: { studio: { id: user.studio.id } },
+        user: { studio: { id: studioId || user.studio.id } },
         joinStatus: JoinStatus.APPROVED,
       },
       take: limit,

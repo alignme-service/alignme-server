@@ -78,6 +78,10 @@ export class AuthController {
     description: '카톡 소셜 로그인 인증 + 유저 가입처리',
   })
   @ApiQuery({
+    name: 'type',
+    description: '어드민 로그인 인지 앱 로그인 인지',
+  })
+  @ApiQuery({
     name: 'code',
     description: '클라이언트에서 redirect uri에 포함된 code',
   })
@@ -88,6 +92,7 @@ export class AuthController {
   })
   @Get('/user/login')
   async login(
+    @Query('type') type: 'admin' | 'user',
     @Query('code') code: string,
     @Res({ passthrough: true }) res: Response,
   ) {
@@ -95,7 +100,9 @@ export class AuthController {
     const GET_USER_INFO_URL = this.configService.get('GET_USER_INFO_URL');
     const GRANT_TYPE = this.configService.get('GRANT_TYPE');
     const CLIENT_ID = this.configService.get('KAKAO_ID');
-    const REDIRECT_URI = this.configService.get('KAKAO_REDIRECT_URI');
+    const REDIRECT_URI = this.configService.get(
+      type === 'user' ? 'KAKAO_REDIRECT_URI_USER' : 'KAKAO_REDIRECT_URI_ADMIN',
+    );
 
     const requestBody = this.utilsService.formUrlEncoded({
       grant_type: GRANT_TYPE,
