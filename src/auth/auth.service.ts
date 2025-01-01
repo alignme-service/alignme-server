@@ -185,12 +185,14 @@ export class AuthService {
 
     let auth: Auth;
 
-    if (!auth) {
+    if (!user) {
       auth = this.authRepository.create({ user });
+      auth.refreshToken = refreshToken;
+      await this.authRepository.save(auth);
     }
 
-    auth.refreshToken = refreshToken;
-    await this.authRepository.save(auth);
+    user.auth.refreshToken = refreshToken;
+    await this.authRepository.save(user.auth);
   }
 
   async leaveUser(userId: number) {
@@ -255,12 +257,12 @@ export class AuthService {
 
       const user = await this.userRepository.findOne({
         where: { kakaoMemberId: +payload.sub },
-        relations: ['instructor', 'member', 'studio', 'profile'],
+        relations: ['instructor', 'member', 'studio', 'profile', 'auth'],
       });
 
       return user;
     } catch {
-      throw new UnauthorizedException(ErrorCodes.ERR_01);
+      // throw new UnauthorizedException(ErrorCodes.ERR_01);
     }
   }
 
