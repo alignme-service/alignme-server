@@ -86,7 +86,7 @@ export class ContentController {
     );
   }
 
-  @Post(':id')
+  @Patch(':id')
   @ApiOperation({ summary: '콘텐츠 수정' })
   @ApiResponse({ status: 200, description: '성공' })
   // @UseInterceptors(

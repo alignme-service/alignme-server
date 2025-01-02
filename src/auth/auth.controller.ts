@@ -39,7 +39,7 @@ export class AuthController {
   // @Get('/user/login/kakao')
   // @UseGuards(AuthGuard('kakao'))
   // async kakaoAuth() {}
-  //
+
   // @Post('auto-login')
   // @ApiOperation({
   //   description: '자동로그인 처리 토큰 확인',
@@ -74,6 +74,7 @@ export class AuthController {
   //     isExpired,
   //   };
   // }
+
   @ApiOperation({
     description: '카톡 소셜 로그인 인증 + 유저 가입처리',
   })

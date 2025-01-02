@@ -2,7 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import * as express from 'express';
-// import * as cookieParser from 'cookie-parser';
+import cookieParser from 'cookie-parser';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
@@ -13,11 +13,11 @@ async function bootstrap() {
     origin: true,
     credentials: true,
     // exposedHeaders: ['Set-Cookie'],
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
   });
 
-  // app.use(cookieParser());
+  app.use(cookieParser());
 
   // JSON 파싱 설정 (기본 크기 제한: 100kb)
   app.use(express.json({ limit: '100kb' }));
