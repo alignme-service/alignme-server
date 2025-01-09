@@ -63,7 +63,7 @@ export class AuthService {
     if (findUser === null) {
       isAlready = false;
 
-      this.userRepository.create({
+      const createUser = this.userRepository.create({
         kakaoMemberId,
         email,
         name,
@@ -83,7 +83,7 @@ export class AuthService {
         name,
       );
       const refreshToken = await this.generateRefreshToken(kakaoMemberId);
-      await this.setRefreshToken(refreshToken);
+      await this.setRefreshToken(createUser, refreshToken);
 
       return {
         isAlready,
@@ -109,7 +109,7 @@ export class AuthService {
       );
       const newRefreshToken = await this.generateRefreshToken(kakaoMemberId);
 
-      await this.setRefreshToken(newRefreshToken);
+      await this.setRefreshToken(findUser, newRefreshToken);
 
       return {
         isAlready,
@@ -180,12 +180,13 @@ export class AuthService {
     };
   }
 
-  async setRefreshToken(refreshToken: string): Promise<void> {
-    const user = await this.findUserByRefreshToken(refreshToken);
-
-    let auth: Auth;
+  async setRefreshToken(user: User, refreshToken: string): Promise<void> {
+    // const user = await this.findUserByRefreshToken(refreshToken);
 
     if (!user) {
+      let auth: Auth;
+
+      // eslint-disable-next-line prefer-const
       auth = this.authRepository.create({ user });
       auth.refreshToken = refreshToken;
       await this.authRepository.save(auth);
@@ -223,15 +224,13 @@ export class AuthService {
   }
 
   async findUserByKakaoMemberId(kakaoMemberId: number): Promise<User> {
-    console.log('@@@ findUserByKakaoMemberId');
-
     try {
       return await this.userRepository.findOne({
         where: { kakaoMemberId },
         relations: ['auth', 'studio'],
       });
     } catch {
-      throw new NotFoundException(ErrorCodes.ERR_11);
+      // throw new NotFoundException(ErrorCodes.ERR_11);
     }
   }
 
