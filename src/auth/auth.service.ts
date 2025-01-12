@@ -70,12 +70,7 @@ export class AuthService {
         createdAt: new Date(),
       });
 
-      await this.userRepository.save({
-        kakaoMemberId,
-        email,
-        name,
-        createdAt: new Date(),
-      });
+      await this.userRepository.save(createUser);
 
       const accessToken = await this.generateAccessToken(
         kakaoMemberId,
@@ -83,7 +78,14 @@ export class AuthService {
         name,
       );
       const refreshToken = await this.generateRefreshToken(kakaoMemberId);
-      await this.setRefreshToken(createUser, refreshToken);
+
+      const auth = this.authRepository.create({
+        user: createUser,
+        refreshToken: refreshToken,
+      });
+
+      // auth 객체를 DB에 저장
+      await this.authRepository.save(auth);
 
       return {
         isAlready,
@@ -101,7 +103,7 @@ export class AuthService {
     const { isExpired } = await this.verifyToken(findUser.auth.refreshToken);
 
     // 유저있고 리프레시토큰 만료시 토큰 재발급
-    if (isExpired) {
+    if (!isExpired) {
       const newAccessToken = await this.generateAccessToken(
         kakaoMemberId,
         email,
@@ -109,7 +111,8 @@ export class AuthService {
       );
       const newRefreshToken = await this.generateRefreshToken(kakaoMemberId);
 
-      await this.setRefreshToken(findUser, newRefreshToken);
+      findUser.auth.refreshToken = newRefreshToken;
+      await this.authRepository.save(findUser.auth);
 
       return {
         isAlready,

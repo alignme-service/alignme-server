@@ -132,7 +132,8 @@ export class AuthController {
       const authPayload = {
         kakaoMemberId: userInfo.id,
         email: userInfo.kakao_account.email,
-        name: userInfo.kakao_account.name,
+        // name: userInfo.kakao_account.name,
+        name: userInfo.kakao_account.profile.nickname,
         // profile_image: userInfo.kakao_account.profile.profile_image_url,
       };
 
