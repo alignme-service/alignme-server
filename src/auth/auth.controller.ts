@@ -20,12 +20,10 @@ import { UtilsService } from '../utils/utils.service';
 import {
   ApiBody,
   ApiCreatedResponse,
-  ApiExcludeEndpoint,
   ApiOperation,
   ApiQuery,
 } from '@nestjs/swagger';
 import { SignInResponse } from './model/auth.response';
-import { GetAccessToken } from '../decorators/get-access-token.decorator';
 
 @Controller('auth')
 export class AuthController {
@@ -34,46 +32,6 @@ export class AuthController {
     private readonly configService: ConfigService,
     private readonly utilsService: UtilsService,
   ) {}
-
-  // @ApiExcludeEndpoint()
-  // @Get('/user/login/kakao')
-  // @UseGuards(AuthGuard('kakao'))
-  // async kakaoAuth() {}
-
-  // @Post('auto-login')
-  // @ApiOperation({
-  //   description: '자동로그인 처리 토큰 확인',
-  // })
-  // @ApiBody({
-  //   schema: {
-  //     type: 'string',
-  //     properties: {
-  //       refreshToken: {
-  //         type: 'string',
-  //       },
-  //     },
-  //   },
-  // })
-  // @ApiCreatedResponse({
-  //   description: '자동로그인 처리 결과',
-  //   schema: {
-  //     type: 'string',
-  //     properties: {
-  //       isExpired: {
-  //         type: 'string',
-  //       },
-  //     },
-  //   },
-  // })
-  // async autoLogin(@Req() req: Request) {
-  //   const refreshToken = req.cookies['refreshToken'];
-  //
-  //   const { isExpired } = await this.authService.autoLogin(refreshToken);
-  //
-  //   return {
-  //     isExpired,
-  //   };
-  // }
 
   @ApiOperation({
     description: '카톡 소셜 로그인 인증 + 유저 가입처리',

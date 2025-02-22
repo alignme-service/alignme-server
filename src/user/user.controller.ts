@@ -227,4 +227,11 @@ export class UserController {
   async getMemberOfStudioInfo(@GetAccessToken() accessToken: string) {
     return this.userService.getMemberOfStudioInfo(accessToken);
   }
+
+  // 가입 대기중인 유저의 강사와 스튜디오
+  @Get('signup-pending-info')
+  @ApiOperation({ summary: '가입 대기중인 멤버의 스튜디오/강사 조회' })
+  async getSiginupPendingInfo(@GetAccessToken() accessToken: string) {
+    return this.userService.getSiginupPendingInfo(accessToken);
+  }
 }

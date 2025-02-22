@@ -642,4 +642,28 @@ export class UserService {
       console.error(error);
     }
   }
+
+  async getSiginupPendingInfo(accessToken: string) {
+    const { userId } = this.authService.decodeAccessToken(accessToken);
+
+    try {
+      const user = await this.userRepository.findOne({
+        where: { kakaoMemberId: +userId },
+        relations: ['instructor', 'member', 'studio'],
+      });
+
+      const member = await this.memberRepository.findOne({
+        where: { user: { id: user.id } },
+        relations: ['instructor', 'instructor.user'],
+      });
+
+      return {
+        instructor: member.instructor.user.name,
+        studioName: user.studio.studioName,
+        studioRegion: user.studio.studioRegionName,
+      };
+    } catch (error) {
+      console.error(error);
+    }
+  }
 }

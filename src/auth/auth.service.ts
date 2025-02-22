@@ -34,20 +34,6 @@ export class AuthService {
     private dataSource: DataSource,
   ) {}
 
-  async autoLogin(refreshToken: string) {
-    const { isExpired } = await this.verifyToken(refreshToken);
-
-    if (isExpired) {
-      throw new UnauthorizedException(ErrorCodes.ERR_02);
-    }
-
-    await this.userService.checkPendingUser(refreshToken);
-
-    return {
-      isExpired,
-    };
-  }
-
   async validateUser(payload: {
     kakaoMemberId: number;
     email: string;
