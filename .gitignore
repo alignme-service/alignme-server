@@ -54,3 +54,8 @@ pids
 
 # Diagnostic reports (https://nodejs.org/api/report.html)
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+
+/src/configs/.env.*
+!src/configs/env.example
+/docker-compose.yaml
+!docker-compose-example.yaml
