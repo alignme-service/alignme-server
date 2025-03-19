@@ -1,85 +1,66 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+## AI운동자세 APP 서비스(Alignme) - Backend
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+---
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://coveralls.io/github/nestjs/nest?branch=master" target="_blank"><img src="https://coveralls.io/repos/github/nestjs/nest/badge.svg?branch=master#9" alt="Coverage" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+### 소개
 
-## Description
+Pose Detection API 와 자체 개발한 두 자세간 유사성 비교 모듈을 활용하여 사용자의 운동 자세가 강사의 모범 운동자세와 같은지 피드백을 제공합니다.
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+<div float="left">
+<img src="https://github.com/user-attachments/assets/9283f255-c1c4-4027-9a61-3890a26af570" width="400" height="200" alt="left"> 
+  <img src="https://github.com/user-attachments/assets/5f78060b-48be-4500-8f65-4be125836f42" width="400" height="200" alt="right"> 
+</div>
 
-## Project setup
+---
 
-```bash
-$ yarn install
-```
+### 서비스 구조
 
-## Compile and run the project
+![Image](https://github.com/user-attachments/assets/0122178b-7c2d-4197-8d54-a2d8187148d2)
 
-```bash
-# development
-$ yarn run start
+- Alignme Core API는 Private NPM에 배포 되어 각 프론트엔드에 API 형태로 연동 중.
+- Alignme Core API는 Pose Detaection API를 사용하여 데이터 추출 후 자체 알고리즘으로 자세 유사성 비교.
 
-# watch mode
-$ yarn run start:dev
+---
 
-# production mode
-$ yarn run start:prod
-```
+### 인프라
 
-## Run tests
+- ### Frontend
 
-```bash
-# unit tests
-$ yarn run test
+    - **Hosting**: AWS S3
+    - **Framework**: React.js
+    - **Distribution**: CloudFront CDN
 
-# e2e tests
-$ yarn run test:e2e
+  ### Backend
 
-# test coverage
-$ yarn run test:cov
-```
+    - **Hosting**: AWS EC2
+    - **Framework**: Nest.js
 
-## Resources
+  ### Database
 
-Check out a few resources that may come in handy when working with NestJS:
+    - **Service**: AWS RDS
+    - **Type**: PostgreSQL, TypeORM
+    - **Tool**: DBeaver
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+  ### Network & Security
 
-## Support
+    - **DNS Management**: Route 53
+    - **Domain Management**: Route 53
+    - **SSL Certificate**: AWS Certificate Manager
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+---
 
-## Stay in touch
+### ERD
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+<img width="814" alt="Image" src="https://github.com/user-attachments/assets/e6024aa3-a1c4-4f6e-ae67-70ab391faf80" />
 
-## License
+---
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+
+
+### 기능
+
+- JWT, 카카오 Oauth
+- AWS S3 Image Upload
+- Role Guard (어드민 서비스 - Role: 대표강사, 일반 강사)
+- 운동 컨텐츠 CRUD
+- 대표강사가 강사/수강생 가입승인,거절, 내보내기 (어드민 서비스)
