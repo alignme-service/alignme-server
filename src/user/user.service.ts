@@ -632,11 +632,12 @@ export class UserService {
         where: { kakaoMemberId: +userId },
         relations: ['member.instructor', 'member.instructor.user', 'studio'],
       });
-
+      console.log(user);
       return {
         id: user.member.instructor.id,
         name: user.member.instructor.user.name,
         studioName: user.studio.studioName,
+        studioRegionName: user.studio.studioRegionName || ""
       };
     } catch (error) {
       console.error(error);
