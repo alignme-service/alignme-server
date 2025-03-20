@@ -1,4 +1,6 @@
 import {
+  HttpException,
+  HttpStatus,
   Injectable,
   NotFoundException,
   UnauthorizedException,
@@ -11,6 +13,10 @@ import { DataSource, Repository } from 'typeorm';
 import { UserRole } from '../user/types/userRole';
 import { UserService } from '../user/user.service';
 import ErrorCodes from '../constants/ErrorCodes';
+import { ConfigService } from '@nestjs/config';
+import axios from 'axios';
+import { UtilsService } from '../utils/utils.service';
+import { UserType } from './types/auth.types';
 
 export type ReturnValidateUser = {
   isAlready: boolean;
@@ -29,10 +35,68 @@ export class AuthService {
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
 
-    private readonly userService: UserService,
+    private readonly configService: ConfigService,
+
+    private readonly utilsService: UtilsService,
 
     private dataSource: DataSource,
   ) {}
+
+  async oauthValidate(type: UserType, code: string) {
+    const GET_TOKEN_URL = this.configService.get('GET_TOKEN_URL');
+    const GET_USER_INFO_URL = this.configService.get('GET_USER_INFO_URL');
+    const GRANT_TYPE = this.configService.get('GRANT_TYPE');
+    const CLIENT_ID = this.configService.get('KAKAO_ID');
+    const REDIRECT_URI = this.configService.get(
+      type === 'user' ? 'KAKAO_REDIRECT_URI_USER' : 'KAKAO_REDIRECT_URI_ADMIN',
+    );
+
+    const requestBody = this.utilsService.formUrlEncoded({
+      grant_type: GRANT_TYPE,
+      client_id: CLIENT_ID,
+      redirect_uri: REDIRECT_URI,
+      code,
+    });
+
+    if (!CLIENT_ID || !REDIRECT_URI) {
+      throw new HttpException(
+        'Kakao credentials are not properly configured',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+
+    try {
+      // 1. 토큰 받기
+      const { data } = await axios.post(GET_TOKEN_URL, requestBody);
+      // 2. 받은 토큰으로 유저 정보 받기
+      const { data: userInfo } = await axios.get(GET_USER_INFO_URL, {
+        headers: {
+          Authorization: 'Bearer ' + data.access_token,
+        },
+      });
+
+      const authPayload = {
+        kakaoMemberId: userInfo.id,
+        email: userInfo.kakao_account.email,
+        name: userInfo.kakao_account.profile.nickname,
+        // profile_image: userInfo.kakao_account.profile.profile_image_url,
+      };
+
+      // 기존 유저있는지 확인
+      const { isAlready, accessToken, refreshToken }: ReturnValidateUser =
+        await this.validateUser(authPayload);
+
+      return {
+        isAlready,
+        accessToken,
+        refreshToken,
+        authPayload,
+      };
+    } catch (error) {
+      console.log('error', error);
+      throw new NotFoundException('Login failed');
+    }
+  }
 
   async validateUser(payload: {
     kakaoMemberId: number;

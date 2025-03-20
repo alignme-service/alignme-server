@@ -29,7 +29,7 @@ import { PoseModule } from './pose/pose.module';
       password: process.env.DATABASE_PASSWORD,
       database: process.env.DATABASE_NAME,
       entities: [__dirname + '/**/*.entity{.ts,.js}'],
-      synchronize: true,
+      synchronize: process.env.NODE_ENV !== 'production',
     }),
     MulterModule.register({
       storage: diskStorage({

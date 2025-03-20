@@ -24,6 +24,7 @@ import {
   ApiQuery,
 } from '@nestjs/swagger';
 import { SignInResponse } from './model/auth.response';
+import { UserType } from './types/auth.types';
 
 @Controller('auth')
 export class AuthController {
@@ -51,74 +52,29 @@ export class AuthController {
   })
   @Get('/user/login')
   async login(
-    @Query('type') type: 'admin' | 'user',
+    @Query('type') type: UserType,
     @Query('code') code: string,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const GET_TOKEN_URL = this.configService.get('GET_TOKEN_URL');
-    const GET_USER_INFO_URL = this.configService.get('GET_USER_INFO_URL');
-    const GRANT_TYPE = this.configService.get('GRANT_TYPE');
-    const CLIENT_ID = this.configService.get('KAKAO_ID');
-    const REDIRECT_URI = this.configService.get(
-      type === 'user' ? 'KAKAO_REDIRECT_URI_USER' : 'KAKAO_REDIRECT_URI_ADMIN',
-    );
+    const { isAlready, accessToken, refreshToken, authPayload } =
+      await this.authService.oauthValidate(type, code);
 
-    const requestBody = this.utilsService.formUrlEncoded({
-      grant_type: GRANT_TYPE,
-      client_id: CLIENT_ID,
-      redirect_uri: REDIRECT_URI,
-      code,
+    res.cookie('refreshToken', refreshToken, {
+      expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      domain: 'localhost',
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
     });
 
-    if (!CLIENT_ID || !REDIRECT_URI) {
-      throw new HttpException(
-        'Kakao credentials are not properly configured',
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-    }
-
-    try {
-      // 1. 토큰 받기
-      const { data } = await axios.post(GET_TOKEN_URL, requestBody);
-      // 2. 받은 토큰으로 유저 정보 받기
-      const { data: userInfo } = await axios.get(GET_USER_INFO_URL, {
-        headers: {
-          Authorization: 'Bearer ' + data.access_token,
-        },
-      });
-
-      const authPayload = {
-        kakaoMemberId: userInfo.id,
-        email: userInfo.kakao_account.email,
-        // name: userInfo.kakao_account.name,
-        name: userInfo.kakao_account.profile.nickname,
-        // profile_image: userInfo.kakao_account.profile.profile_image_url,
-      };
-
-      // 기존 유저있는지 확인
-      const { isAlready, accessToken, refreshToken }: ReturnValidateUser =
-        await this.authService.validateUser(authPayload);
-
-      res.cookie('refreshToken', refreshToken, {
-        expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-        domain: 'localhost',
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-      });
-
-      res.status(200).json({
-        message: 'login successful',
-        data: {
-          isAlready,
-          accessToken,
-          ...authPayload,
-        },
-      });
-    } catch (error) {
-      console.log('error', error);
-      throw new NotFoundException('Login failed');
-    }
+    res.status(200).json({
+      message: 'login successful',
+      data: {
+        isAlready,
+        accessToken,
+        ...authPayload,
+      },
+    });
   }
 
   @ApiOperation({
