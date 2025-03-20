@@ -1,20 +1,7 @@
-import {
-  Controller,
-  Get,
-  HttpException,
-  HttpStatus,
-  NotFoundException,
-  Post,
-  Query,
-  Req,
-  Res,
-  UseGuards,
-} from '@nestjs/common';
-import axios from 'axios';
-import { AuthGuard } from '@nestjs/passport';
+import { Controller, Get, Post, Query, Req, Res } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Response, Request } from 'express';
-import { AuthService, ReturnValidateUser } from './auth.service';
+import { AuthService } from './auth.service';
 import { Public } from 'src/public.decorator';
 import { UtilsService } from '../utils/utils.service';
 import {
@@ -102,27 +89,4 @@ export class AuthController {
       refreshToken: tokens.refreshToken,
     };
   }
-
-  // @ApiOperation({
-  //   description: '로그아웃',
-  // })
-  // @ApiBody({
-  //   description: '로그아웃할 유저의 kakaoMemberId',
-  //   schema: {
-  //     type: 'object',
-  //     properties: {
-  //       kakaoMemberId: {
-  //         type: 'string',
-  //       },
-  //     },
-  //   },
-  //   type: String,
-  // })
-  // @Post('logout')
-  // async logout(@Req() request: Request) {
-  //   const accessToken = request.cookies['accessToken'];
-  //
-  //   await this.authService.logout(+accessToken);
-  //   return { message: 'Logout successful' };
-  // }
 }
