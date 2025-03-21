@@ -19,7 +19,7 @@ import { PoseModule } from './pose/pose.module';
   imports: [
     ConfigModule.forRoot({
       envFilePath: `src/configs/.env.${process.env.NODE_ENV}`,
-      isGlobal: true, // 환경 변수를 글로벌로 사용
+      isGlobal: true,
     }),
     TypeOrmModule.forRoot({
       type: 'postgres',
@@ -29,7 +29,7 @@ import { PoseModule } from './pose/pose.module';
       password: process.env.DATABASE_PASSWORD,
       database: process.env.DATABASE_NAME,
       entities: [__dirname + '/**/*.entity{.ts,.js}'],
-      synchronize: process.env.NODE_ENV !== 'production',
+      synchronize: false,
     }),
     MulterModule.register({
       storage: diskStorage({
