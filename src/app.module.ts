@@ -1,5 +1,4 @@
 import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from './auth/auth.module';
 import { UserModule } from './user/user.module';
@@ -14,22 +13,37 @@ import { diskStorage } from 'multer';
 import { extname } from 'path';
 import { StudioModule } from './studio/studio.module';
 import { PoseModule } from './pose/pose.module';
+import { DatabaseModule } from './database/database.module';
+import Joi from '@hapi/joi';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
-      envFilePath: `src/configs/.env.${process.env.NODE_ENV}`,
+      validationSchema: Joi.object({
+        KAKAO_ID: Joi.string().required(),
+        KAKAO_SECRET: Joi.string().required(),
+        KAKAO_REDIRECT_URI_ADMIN: Joi.string().required(),
+        KAKAO_REDIRECT_URI_USER: Joi.string().required(),
+        POSTGRES_HOST: Joi.string().required(),
+        POSTGRES_PORT: Joi.number().required(),
+        POSTGRES_USER: Joi.string().required(),
+        POSTGRES_PASSWORD: Joi.string().required(),
+        POSTGRES_DB: Joi.string().required(),
+        JWT_ACCESS_SECRET: Joi.string().required(),
+        JWT_REFRESH_SECRET: Joi.string().required(),
+        JWT_ACCESS_EXPIRATION_TIME: Joi.number().required(),
+        JWT_REFRESH_EXPIRATION_TIME: Joi.number().required(),
+        JWT_SECRET: Joi.string().required(),
+        GET_TOKEN_URL: Joi.string().required(),
+        GET_USER_INFO_URL: Joi.string().required(),
+        GRANT_TYPE: Joi.string().required(),
+        AWS_S3_BUCKET_NAME: Joi.string().required(),
+        AWS_REGION: Joi.string().required(),
+        AWS_ACCESS_KEY: Joi.string().required(),
+        AWS_SECRET_ACCESS_KEY: Joi.string().required(),
+      }),
+      // envFilePath: `./src/configs/--env.${process.env.NODE_ENV}`,
       isGlobal: true,
-    }),
-    TypeOrmModule.forRoot({
-      type: 'postgres',
-      host: process.env.DATABASE_HOST,
-      port: +process.env.DATABASE_PORT,
-      username: process.env.DATABASE_USERNAME,
-      password: process.env.DATABASE_PASSWORD,
-      database: process.env.DATABASE_NAME,
-      entities: [__dirname + '/**/*.entity{.ts,.js}'],
-      synchronize: false,
     }),
     MulterModule.register({
       storage: diskStorage({
@@ -53,7 +67,6 @@ import { PoseModule } from './pose/pose.module';
         }
       },
     }),
-
     AuthModule,
     UserModule,
     StudioModule,
@@ -62,6 +75,7 @@ import { PoseModule } from './pose/pose.module';
     UtilsModule,
     ContentModule,
     PoseModule,
+    DatabaseModule,
   ],
   controllers: [AppController],
   providers: [AppService],
